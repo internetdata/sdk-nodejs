@@ -1,4 +1,4 @@
-# [<img src="https://docs.internetdata.io/logo.svg" alt="InternetData" width="24"/>](https://internetdata.io/) InternetData Node.js Client Library
+# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" width="24"/>](https://internetdata.io/) InternetData Node.js Client Library
 
 [![npm](https://img.shields.io/npm/v/@internetdata/internetdata.svg)](https://www.npmjs.com/package/@internetdata/internetdata)
 [![license](https://img.shields.io/npm/l/@internetdata/internetdata.svg)](LICENSE)
@@ -119,7 +119,7 @@ There are official InternetData client libraries available for many languages in
 
 IP intelligence databases: VPN, proxy, hosting, CDN and relay address space, provider catalogs and network metadata, published as CSV and MMDB.
 
-[<img src="https://docs.internetdata.io/logo.svg" alt="InternetData" width="96"/>](https://internetdata.io/)
+[<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" width="96"/>](https://internetdata.io/)
 
 ## License
 
