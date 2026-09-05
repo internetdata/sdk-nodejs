@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 import {
-    DATASET_FORMATS, InternetDataError, REDISTRIBUTION_RIGHTS, STANDINGS,
+    DATASET_FORMATS, InternetDataError, LICENSE_TYPES, STANDINGS,
 } from '@internetdata/internetdata';
 
 import { skipForNoKey } from '../lib/key.mjs';
@@ -38,8 +38,8 @@ test('the catalog answers the schema the client was generated from', { skip: NO_
         assert.equal(typeof db.summary, 'string', `${db.base} carries no summary`);
         assert.ok(STANDINGS.includes(db.standing), `${db.base} carries standing ${db.standing}`);
         assert.ok(
-            db.redistribution === null || REDISTRIBUTION_RIGHTS.includes(db.redistribution),
-            `${db.base} carries redistribution ${db.redistribution}`,
+            db.license_type === null || LICENSE_TYPES.includes(db.license_type),
+            `${db.base} carries license_type ${db.license_type}`,
         );
         assert.ok(Array.isArray(db.versions) && db.versions.length > 0,
             `${db.base} carries no versions`);

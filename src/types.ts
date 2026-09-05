@@ -13,7 +13,7 @@ export type DatasetFormat = DatabaseVersion['formats'][number];
 export type Standing = Database['standing'];
 
 /** What a licence permits you to do with the data. Absent when there is no licence. */
-export type Redistribution = NonNullable<Database['redistribution']>;
+export type LicenseType = NonNullable<Database['license_type']>;
 
 // The runtime halves of the three closed vocabularies above, for a caller that
 // wants to validate or enumerate rather than switch. Each is TYPED by the
@@ -21,6 +21,6 @@ export type Redistribution = NonNullable<Database['redistribution']>;
 // value is MISSING is what the shared conformance corpus pins.
 export const DATASET_FORMATS: readonly DatasetFormat[] = ['csvgz', 'mmdb'];
 export const STANDINGS: readonly Standing[] = ['licensed', 'expired', 'unlicensed'];
-export const REDISTRIBUTION_RIGHTS: readonly Redistribution[] = [
-    'evaluation', 'internal', 'redistribute',
+export const LICENSE_TYPES: readonly LicenseType[] = [
+    'evaluation', 'standard', 'redistribute',
 ];

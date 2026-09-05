@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import {
-    DATASET_FORMATS, InternetData, InternetDataError, REDISTRIBUTION_RIGHTS, STANDINGS,
+    DATASET_FORMATS, InternetData, InternetDataError, LICENSE_TYPES, STANDINGS,
 } from '../dist/index.js';
 
 const data = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8'));
@@ -84,7 +84,7 @@ test('a non-enumerated 4xx is never retried', async () => {
 test('the closed vocabularies match the corpus exactly', () => {
     assert.deepEqual([...DATASET_FORMATS].sort(), [...data.formats].sort());
     assert.deepEqual([...STANDINGS].sort(), [...data.standings].sort());
-    assert.deepEqual([...REDISTRIBUTION_RIGHTS].sort(), [...data.redistribution].sort());
+    assert.deepEqual([...LICENSE_TYPES].sort(), [...data.license_type].sort());
 });
 
 // One handler per rule in the corpus, and the corpus decides which rules exist:
@@ -96,12 +96,12 @@ const VISIBILITY_RULES = {
             databases: [
                 {
                     base: 'public_one', name: 'Public One', summary: 'a', standing: 'licensed',
-                    redistribution: 'internal', starts: null, expires: null,
+                    license_type: 'standard', starts: null, expires: null,
                     versions: [{ id: 'public_one_v1', version: 1, summary: 'a', formats: ['csvgz'] }],
                 },
                 {
                     base: 'public_two', name: 'Public Two', summary: 'b', standing: 'unlicensed',
-                    redistribution: null, starts: null, expires: null,
+                    license_type: null, starts: null, expires: null,
                     versions: [{ id: 'public_two_v1', version: 1, summary: 'b', formats: ['mmdb'] }],
                 },
             ],
