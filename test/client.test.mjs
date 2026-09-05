@@ -50,13 +50,19 @@ function clientFor(replies, options = {}) {
     };
 }
 
-test('a missing or empty key is refused at construction', () => {
-    // An empty key is sent as NO auth header at all, so without this the API
-    // answers 401 and every keyed assertion downstream passes vacuously. This is
-    // exactly what an unset CI secret interpolates to.
-    assert.throws(() => new InternetData({ apiKey: '' }), TypeError);
-    assert.throws(() => new InternetData({ apiKey: '   ' }), TypeError);
-    assert.throws(() => new InternetData({}), TypeError);
+// The key is optional because what the API serves without a licence is a product
+// decision, and a client that cannot be built without one would have to break
+// its own signature to follow it. What must never happen is `Authorization:
+// Bearer ` with nothing after it, which reads as a wrong key rather than none.
+test('a client builds with no key and sends no authorization header', async () => {
+    for (const options of [{}, { apiKey: undefined }, { apiKey: '' }]) {
+        const s = stub({ body: { databases: [] } });
+        const client = new InternetData({ fetch: s.fetch, retries: 0, ...options });
+
+        await client.database.list();
+
+        assert.equal(s.calls[0].authorization, null, `apiKey: ${JSON.stringify(options.apiKey)}`);
+    }
 });
 
 test('the key reaches the wire as a bearer token, at the documented host', async () => {

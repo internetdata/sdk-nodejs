@@ -33,8 +33,12 @@ export interface DownloadsOptions {
 }
 
 export interface Options {
-    /** Your API key, carrying the `db.download` scope. */
-    apiKey: string;
+    /**
+     * Your API key, carrying the `db.download` scope. Omit it to send no
+     * `Authorization` header at all, which is what a dataset offered without a
+     * licence would be read with.
+     */
+    apiKey?: string;
     baseUrl?: string;
     /** Retry attempts for a transient failure. Default 2. */
     retries?: number;
@@ -48,26 +52,24 @@ export interface Options {
  * Everything the API answers is scoped to the organization the key belongs to,
  * including which databases are listed at all, so one client speaks for exactly
  * one organization and nothing it learns may be reused for another key.
+ *
+ * The key is optional, and an absent one sends no `Authorization` header rather
+ * than an empty one. Every endpoint published today is licensed, so a keyless
+ * client is answered `401` for now; it exists because what the API serves
+ * without a licence is a product decision, not the client's to refuse.
  */
 export class InternetData {
     /** The database catalog, downloads and their history. */
     readonly database: DatabaseApi;
 
-    constructor(options: Options) {
-        // Checked rather than left to the API, which would answer 401: an empty
-        // key is sent as NO auth header at all, so the failure would arrive as
-        // "unauthorized" and read as a wrong key rather than a missing one.
-        // `${{ secrets.MISSING }}` in a CI workflow interpolates to exactly this.
-        if (typeof options.apiKey !== 'string' || options.apiKey.trim() === '') {
-            throw new TypeError('an InternetData API key is required');
-        }
+    constructor(options: Options = {}) {
         // Resolved once, because the download path calls object storage
         // directly rather than through the generated client and has to reach
         // the same implementation a test substituted.
         const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
         const client = createClient(createConfig({
             baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
-            auth: () => options.apiKey,
+            ...(options.apiKey === undefined ? {} : { auth: () => options.apiKey }),
             fetch: fetchImpl,
         }));
         this.database = new DatabaseApi(client, options.retries ?? 2, fetchImpl);

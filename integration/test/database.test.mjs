@@ -55,9 +55,9 @@ test('the catalog answers the schema the client was generated from', { skip: NO_
     console.log(`catalog: ${listed.map((d) => `${d.base}:${d.standing}`).join(', ')}`);
 
     // Without this the run is indistinguishable from one whose key never
-    // reached the wire, and every comparison above is vacuous - an empty key is
-    // sent as no auth header at all, though the client now refuses to be built
-    // from one.
+    // reached the wire, and every comparison above is vacuous: an absent or
+    // empty key is sent as no auth header at all, and the client builds happily
+    // from one, so the suite is where that has to be caught.
     const toApi = requestLog().filter((f) => f.origin === STAGING_ORIGIN);
     assert.ok(toApi.length > 0, 'no request reached the staging API');
     assert.ok(toApi.every((f) => f.carriedKey), 'a request to the API carried no key');
