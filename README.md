@@ -1,4 +1,4 @@
-# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" width="24"/>](https://internetdata.io/) InternetData Node.js Client Library
+# [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" height="28"/>](https://internetdata.io/) InternetData Node.js Client Library
 
 [![npm](https://img.shields.io/npm/v/@internetdata/internetdata.svg)](https://www.npmjs.com/package/@internetdata/internetdata)
 [![license](https://img.shields.io/npm/l/@internetdata/internetdata.svg)](LICENSE)
