@@ -31,8 +31,6 @@ for (const db of await client.database.list()) {
 
 `list()` returns one entry per database FAMILY, because a licence is held against the family while a download names a specific version. `standing` is `licensed` if the family is yours today, `expired` if the term has ended, and `unlicensed` if it is published but has never been bought. `versions` carries the ids you pass everywhere else, oldest first, and the formats each one is actually built in.
 
-**This listing is not the same for every key.** A database commissioned for a single customer is absent from the catalog for every other organization, rather than being listed as unlicensed. So the listing is only ever an answer about the key that asked, this library never caches one, and you should not carry an answer from one key over to another or treat it as the published catalog.
-
 ### What is inside a database
 
 ```js
