@@ -192,3 +192,30 @@ test('a dataset transfer is exempt from the deadline', async () => {
     assert.equal(url, 'https://s3.invalid/f');
     assert.equal((await client.database.downloadBytes('any_v1', 'csvgz')).length, 7);
 });
+
+// The spec documents three credential forms because the API accepts three, and
+// the generator will happily apply all of them - putting the key in the query
+// string of every request. A query string is the one place a secret must not
+// be: access logs, proxy logs and browser history all keep it, and none of
+// those are ours. Asserted on what leaves the client, because the request
+// succeeds either way.
+test('the key is sent in the Authorization header and nowhere else', async () => {
+    let seen = null;
+    const fetchFn = async (input, init) => {
+        const url = new URL(typeof input === 'string' ? input : input.url);
+        const headers = new Headers(input?.headers ?? init?.headers ?? {});
+        seen = {
+            query: url.searchParams.get('apikey'),
+            authorization: headers.get('authorization'),
+            xApiKey: headers.get('x-api-key'),
+        };
+        return new Response(JSON.stringify({ databases: [] }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+        });
+    };
+    await new InternetData({ fetch: fetchFn, apiKey: 'SECRET' }).database.list();
+
+    assert.equal(seen.authorization, 'Bearer SECRET');
+    assert.equal(seen.query, null, 'the key must never reach a URL');
+    assert.equal(seen.xApiKey, null, 'one credential form, not three');
+});

@@ -82,7 +82,7 @@ export class InternetData {
         const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
         const client = createClient(createConfig({
             baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
-            ...(options.apiKey === undefined ? {} : { auth: () => options.apiKey }),
+            ...(options.apiKey === undefined ? {} : { auth: bearerOnly(options.apiKey) }),
             fetch: fetchImpl,
         }));
         this.database = new DatabaseApi(
@@ -289,6 +289,23 @@ export class DatabaseApi {
             return res;
         });
     }
+}
+
+/**
+ * Sends the key in the `Authorization` header and nowhere else.
+ *
+ * The API accepts three credential forms and the spec documents all three, so
+ * the generator applies EVERY one of them - putting the key in the query string
+ * of every request alongside the headers. A query string is the one place a
+ * secret should never be: it lands in access logs, proxy logs and browser
+ * history, none of which we control. `?apikey=` exists for a human with curl or
+ * a browser bar, not for a client that can set a header.
+ *
+ * Returning undefined for the other schemes is what suppresses them; the
+ * generated `getAuthToken` drops a scheme whose callback yields nothing.
+ */
+function bearerOnly(apiKey: string): (auth: { scheme?: string }) => string | undefined {
+    return (auth) => (auth.scheme === 'bearer' ? apiKey : undefined);
 }
 
 // The generated client puts a non-2xx body on `error` rather than `data`, and
