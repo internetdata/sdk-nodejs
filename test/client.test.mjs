@@ -161,3 +161,34 @@ test('a transport failure surfaces as a network error', async () => {
         return true;
     });
 });
+
+test('a hung API is abandoned at the deadline, not held until undici gives up', async () => {
+    const client = new InternetData({ retries: 0, timeoutMs: 80, fetch: () => new Promise(() => {}) });
+    const started = Date.now();
+    await assert.rejects(
+        () => client.database.list(),
+        (err) => err instanceof InternetDataError && err.kind === 'network' && err.retryable
+            && /timed out after 80ms/.test(err.message),
+    );
+    assert.ok(Date.now() - started < 2000, 'the deadline did not hold');
+});
+
+test('a dataset transfer is exempt from the deadline', async () => {
+    // Serves the 302 slowly enough to blow a tiny budget, then a body that
+    // arrives after it. Only the API leg is bounded, so the transfer completes.
+    const client = new InternetData({
+        retries: 0,
+        timeoutMs: 5000,
+        fetch: async (input) => {
+            const url = typeof input === 'string' ? input : input.url;
+            if (url.includes('/download')) {
+                return new Response(null, { status: 302, headers: { location: 'https://s3.invalid/f' } });
+            }
+            await new Promise((r) => setTimeout(r, 60));
+            return new Response('payload', { status: 200 });
+        },
+    });
+    const url = await client.database.downloadUrl('any_v1', 'csvgz');
+    assert.equal(url, 'https://s3.invalid/f');
+    assert.equal((await client.database.downloadBytes('any_v1', 'csvgz')).length, 7);
+});

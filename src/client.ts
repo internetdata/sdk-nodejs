@@ -27,6 +27,11 @@ export type DownloadDestination = string | Writable;
 
 export const DEFAULT_BASE_URL = 'https://internetdata.io';
 
+// Matches the other SDKs, whose HTTP clients default to 30s. Node's global
+// fetch has no whole-request limit of its own, so without this a hung API holds
+// a caller until undici's 300s headers timeout.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export interface DownloadsOptions {
     /** How many attempts to return, newest first. The API clamps this to 200. */
     limit?: number;
@@ -42,6 +47,14 @@ export interface Options {
     baseUrl?: string;
     /** Retry attempts for a transient failure. Default 2. */
     retries?: number;
+    /**
+     * How long one API call may take before it is abandoned, in milliseconds.
+     * Default 30000, per attempt, so a retried call may take longer in total.
+     *
+     * **A dataset transfer is deliberately exempt.** It is a sane bound on a
+     * metadata call and the wrong one on a body that reaches gigabytes.
+     */
+    timeoutMs?: number;
     /** Override the HTTP implementation, mostly for tests. */
     fetch?: typeof globalThis.fetch;
 }
@@ -72,7 +85,9 @@ export class InternetData {
             ...(options.apiKey === undefined ? {} : { auth: () => options.apiKey }),
             fetch: fetchImpl,
         }));
-        this.database = new DatabaseApi(client, options.retries ?? 2, fetchImpl);
+        this.database = new DatabaseApi(
+            client, options.retries ?? 2, options.timeoutMs ?? DEFAULT_TIMEOUT_MS, fetchImpl,
+        );
     }
 }
 
@@ -81,6 +96,7 @@ export class DatabaseApi {
     constructor(
         private readonly client: Client,
         private readonly retries: number,
+        private readonly timeoutMs: number,
         private readonly fetchImpl: typeof globalThis.fetch,
     ) {}
 
@@ -96,7 +112,9 @@ export class DatabaseApi {
      */
     async list(): Promise<Database[]> {
         return withRetry(this.retries, async () => {
-            const res = await listDatabases({ client: this.client });
+            const res = await deadline(this.timeoutMs, (signal) => listDatabases({
+                client: this.client, signal: signal,
+            }));
             return unwrap<ListDatabasesResponses[200]>(res).databases;
         });
     }
@@ -110,7 +128,9 @@ export class DatabaseApi {
      */
     async metadata(id: string): Promise<DatabaseMetadata> {
         return withRetry(this.retries, async () => {
-            const res = await databaseMetadataV2({ client: this.client, query: { id: id } });
+            const res = await deadline(this.timeoutMs, (signal) => databaseMetadataV2({
+                client: this.client, query: { id: id }, signal: signal,
+            }));
             return unwrap<DatabaseMetadataV2Responses[200]>(res);
         });
     }
@@ -123,9 +143,9 @@ export class DatabaseApi {
      */
     async checksums(id: string, format: DatasetFormat): Promise<DbChecksums> {
         return withRetry(this.retries, async () => {
-            const res = await databaseChecksumV2({
-                client: this.client, query: { id: id, format: format },
-            });
+            const res = await deadline(this.timeoutMs, (signal) => databaseChecksumV2({
+                client: this.client, query: { id: id, format: format }, signal: signal,
+            }));
             return unwrap<DatabaseChecksumV2Responses[200]>(res).checksums;
         });
     }
@@ -138,10 +158,11 @@ export class DatabaseApi {
      */
     async downloads(options: DownloadsOptions = {}): Promise<Download[]> {
         return withRetry(this.retries, async () => {
-            const res = await listDownloads({
+            const res = await deadline(this.timeoutMs, (signal) => listDownloads({
                 client: this.client,
                 ...(options.limit === undefined ? {} : { query: { limit: options.limit } }),
-            });
+                signal: signal,
+            }));
             return unwrap<ListDownloadsResponses[200]>(res).downloads;
         });
     }
@@ -157,11 +178,12 @@ export class DatabaseApi {
      */
     async downloadUrl(id: string, format: DatasetFormat): Promise<string> {
         return withRetry(this.retries, async () => {
-            const res = await downloadRedirect({
+            const res = await deadline(this.timeoutMs, (signal) => downloadRedirect({
                 client: this.client,
                 query: { id: id, format: format },
                 redirect: 'manual',
-            });
+                signal: signal,
+            }));
             if (res.response === undefined) {
                 throw new InternetDataError('network', 'no response from the API');
             }
@@ -289,6 +311,30 @@ function unwrap<T>(res: Res): T {
 // server-supplied Retry-After, which p-retry has no way to know about. A 429
 // carrying that header is the only 429 worth retrying, which is why the wait
 // and the retry decision both key off the same field.
+/**
+ * Bound one attempt, and report an expiry as our own error rather than the
+ * runtime's `TimeoutError`, whose message says nothing about which call gave up.
+ *
+ * Raced, not left to the signal alone: aborting releases the socket, but only
+ * a transport that HONORS the signal then settles, and a substituted `fetch`
+ * need not. Clearing the timer stops the losing side rejecting into nothing.
+ */
+async function deadline<T>(timeoutMs: number, fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const expiry = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            controller.abort();
+            reject(new InternetDataError('network', `request timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+    });
+    try {
+        return await Promise.race([fn(controller.signal), expiry]);
+    } finally {
+        clearTimeout(timer!);
+    }
+}
+
 async function withRetry<T>(retries: number, fn: () => Promise<T>): Promise<T> {
     try {
         return await pRetry(fn, {
