@@ -50,7 +50,7 @@ function clientFor(replies, options = {}) {
     };
 }
 
-// The key is optional because what the API serves without a licence is a product
+// The key is optional because what the API serves without a license is a product
 // decision, and a client that cannot be built without one would have to break
 // its own signature to follow it. What must never happen is `Authorization:
 // Bearer ` with nothing after it, which reads as a wrong key rather than none.

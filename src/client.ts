@@ -41,7 +41,7 @@ export interface Options {
     /**
      * Your API key, carrying the `db.download` scope. Omit it to send no
      * `Authorization` header at all, which is what a dataset offered without a
-     * licence would be read with.
+     * license would be read with.
      */
     apiKey?: string;
     baseUrl?: string;
@@ -69,7 +69,7 @@ export interface Options {
  * The key is optional, and an absent one sends no `Authorization` header rather
  * than an empty one. Every endpoint published today is licensed, so a keyless
  * client is answered `401` for now; it exists because what the API serves
- * without a licence is a product decision, not the client's to refuse.
+ * without a license is a product decision, not the client's to refuse.
  */
 export class InternetData {
     /** The database catalog, downloads and their history. */
@@ -102,7 +102,7 @@ export class DatabaseApi {
 
     /**
      * The published catalog as your organization may see it, one entry per
-     * database FAMILY, with `standing` saying where your licence stands.
+     * database FAMILY, with `standing` saying where your license stands.
      *
      * **This listing is not the same for everyone, and it is not cached.** A
      * database commissioned for a single customer is absent for every other

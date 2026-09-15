@@ -1,7 +1,7 @@
 // The whole surface, against the real staging API and real object storage.
 //
 // Everything is derived from `list()`: which family to move, which one to be
-// refused for. A hardcoded id turns a licence change into a red build that says
+// refused for. A hardcoded id turns a license change into a red build that says
 // nothing about the client, and the size ceiling in staging.mjs is what makes
 // deriving it safe.
 

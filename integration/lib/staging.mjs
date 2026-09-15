@@ -74,7 +74,7 @@ export function databases() {
  * The smallest licensed file this run may move, or a skip reason.
  *
  * Derived rather than named: which families the CI organization holds is a
- * property of the staging database, and a hardcoded id turns a licence change
+ * property of the staging database, and a hardcoded id turns a license change
  * into a red build that says nothing about the client. The size comes from
  * `metadata` BEFORE any transfer, so the ceiling is enforced rather than hoped
  * for.
@@ -109,7 +109,7 @@ export async function smallestLicensedFile() {
 }
 
 /**
- * A real catalog id this organization holds no licence for, or a skip reason.
+ * A real catalog id this organization holds no license for, or a skip reason.
  *
  * Taken from the listing too, so the refusal test cannot go stale by naming a
  * family that has since been bought.

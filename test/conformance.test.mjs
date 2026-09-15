@@ -1,7 +1,7 @@
 // Asserts the shared conformance corpus that every InternetData SDK asserts.
 //
 // The corpus is generated into testdata/ and is identical across languages, so
-// a behaviour that drifts here fails here rather than surfacing as two client
+// a behavior that drifts here fails here rather than surfacing as two client
 // libraries quietly disagreeing about the same refusal.
 //
 // Runs against dist/, which is what actually ships.
