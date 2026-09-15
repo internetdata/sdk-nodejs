@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import {
-    DATASET_FORMATS, InternetData, InternetDataError, LICENSE_TYPES, STANDINGS,
+    DATABASE_FORMATS, InternetData, InternetDataError, LICENSE_TYPES, STANDINGS,
 } from '../dist/index.js';
 
 const data = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8'));
@@ -82,7 +82,7 @@ test('a non-enumerated 4xx is never retried', async () => {
 });
 
 test('the closed vocabularies match the corpus exactly', () => {
-    assert.deepEqual([...DATASET_FORMATS].sort(), [...data.formats].sort());
+    assert.deepEqual([...DATABASE_FORMATS].sort(), [...data.formats].sort());
     assert.deepEqual([...STANDINGS].sort(), [...data.standings].sort());
     assert.deepEqual([...LICENSE_TYPES].sort(), [...data.license_type].sort());
 });

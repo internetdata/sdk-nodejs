@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 import {
-    DATASET_FORMATS, InternetDataError, LICENSE_TYPES, STANDINGS,
+    DATABASE_FORMATS, InternetDataError, LICENSE_TYPES, STANDINGS,
 } from '@internetdata/internetdata';
 
 import { skipForNoKey } from '../lib/key.mjs';
@@ -48,7 +48,7 @@ test('the catalog answers the schema the client was generated from', { skip: NO_
             assert.equal(typeof v.version, 'number', `${v.id} carries no version number`);
             assert.ok(Array.isArray(v.formats) && v.formats.length > 0, `${v.id} is built in nothing`);
             for (const f of v.formats) {
-                assert.ok(DATASET_FORMATS.includes(f), `${v.id} is built in undocumented ${f}`);
+                assert.ok(DATABASE_FORMATS.includes(f), `${v.id} is built in undocumented ${f}`);
             }
         }
     }

@@ -16,7 +16,7 @@ import type {
 
 import { errorFromResponse, InternetDataError, messageFromBody } from './errors.js';
 import type {
-    Database, DatabaseMetadata, DatasetFormat, DbChecksums, Download,
+    Database, DatabaseFormat, DatabaseMetadata, DbChecksums, Download,
 } from './types.js';
 
 /**
@@ -141,7 +141,7 @@ export class DatabaseApi {
      * Returns the whole set rather than one algorithm: which digests a database
      * publishes is the API's choice, not ours.
      */
-    async checksums(id: string, format: DatasetFormat): Promise<DbChecksums> {
+    async checksums(id: string, format: DatabaseFormat): Promise<DbChecksums> {
         return withRetry(this.retries, async () => {
             const res = await deadline(this.timeoutMs, (signal) => databaseChecksumV2({
                 client: this.client, query: { id: id, format: format }, signal: signal,
@@ -176,7 +176,7 @@ export class DatabaseApi {
      * something that holds no API key. The link authorizes the START of a
      * transfer, so one already running is not interrupted when it lapses.
      */
-    async downloadUrl(id: string, format: DatasetFormat): Promise<string> {
+    async downloadUrl(id: string, format: DatabaseFormat): Promise<string> {
         return withRetry(this.retries, async () => {
             const res = await deadline(this.timeoutMs, (signal) => downloadRedirect({
                 client: this.client,
@@ -215,7 +215,7 @@ export class DatabaseApi {
      * problems and only one of them is ours.
      */
     async download(
-        id: string, format: DatasetFormat, destination: DownloadDestination,
+        id: string, format: DatabaseFormat, destination: DownloadDestination,
     ): Promise<number> {
         const res = await this.fetchDatabaseFile(id, format);
         if (res.body === null) {
@@ -265,7 +265,7 @@ export class DatabaseApi {
      * parser; use `download` for anything you have not measured, and `metadata`
      * to measure it before you do.
      */
-    async downloadBytes(id: string, format: DatasetFormat): Promise<Uint8Array> {
+    async downloadBytes(id: string, format: DatabaseFormat): Promise<Uint8Array> {
         const res = await this.fetchDatabaseFile(id, format);
         return new Uint8Array(await res.arrayBuffer());
     }
@@ -273,7 +273,7 @@ export class DatabaseApi {
     // Follows the 302 as a SECOND, unauthenticated request: the presigned URL
     // carries its own authorization, so forwarding the API key would hand a
     // credential to a host that has no business holding it.
-    private async fetchDatabaseFile(id: string, format: DatasetFormat): Promise<Response> {
+    private async fetchDatabaseFile(id: string, format: DatabaseFormat): Promise<Response> {
         const url = await this.downloadUrl(id, format);
         return withRetry(this.retries, async () => {
             const res = await this.fetchImpl(url);
