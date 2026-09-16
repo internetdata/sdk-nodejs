@@ -50,6 +50,7 @@ function main() {
         return;
     }
     console.log(`==> ${PACKAGE}@${range} matches published ${versions.join(', ')}`);
+    assertRangeAdmitsLatest(range, versions);
 
     if (stagingKey() === '') {
         skip(`${KEY_VAR} is not set, so nothing can be exercised against staging`);
@@ -87,6 +88,27 @@ function publishedVersions(range) {
     }
     const parsed = JSON.parse(out.trim());
     return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+/**
+ * The range has to admit the NEWEST release, not merely some release.
+ *
+ * A stale range still matches the last version inside it, so the skip above
+ * never fires and the suite exercises a client from a major behind: `^1.0.0`
+ * kept testing 1.5.0 through the whole of 2.0.x. Not the same thing as the range
+ * being EMPTY, which is a skip - before a first release there is nothing to test.
+ */
+function assertRangeAdmitsLatest(range, versions) {
+    const latest = execFileSync('npm', ['view', PACKAGE, 'dist-tags.latest', ...REGISTRY], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    if (versions.includes(latest)) {
+        return;
+    }
+    throw new Error(
+        `${PACKAGE}@${range} does not admit the newest published ${latest} - it would test `
+        + `${versions[versions.length - 1]} instead. Bump the range in integration/package.json.`);
 }
 
 // The suite is worthless if npm handed it a link to the working tree, and that

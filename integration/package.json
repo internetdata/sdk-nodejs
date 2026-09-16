@@ -9,7 +9,7 @@
         "node": ">=22"
     },
     "dependencies": {
-        "@internetdata/internetdata": "^1.0.0"
+        "@internetdata/internetdata": "^2.0.0"
     },
     "scripts": {
         "test": "node --test test/*.test.mjs",
