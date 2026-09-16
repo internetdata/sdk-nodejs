@@ -1,12 +1,15 @@
 import type {
     Database, DatabaseFormat, DatabaseMetadata, DatabaseMetadataColumn, DatabaseVersion,
-    DbChecksums, Download, LicenseType, Standing,
+    DbChecksums, Download, Standing,
 } from './generated/types.gen.js';
 
 export type {
     Database, DatabaseFormat, DatabaseMetadata, DatabaseMetadataColumn, DatabaseVersion,
-    DbChecksums, Download, LicenseType, Standing,
+    DbChecksums, Download, Standing,
 };
+
+/** What a licence permits you to do with the data. `null` when there is none. */
+export type LicenseType = Database['license_type'];
 
 /**
  * @deprecated Use {@link DatabaseFormat}. Kept so existing imports keep
