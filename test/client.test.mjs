@@ -173,6 +173,61 @@ test('a hung API is abandoned at the deadline, not held until undici gives up', 
     assert.ok(Date.now() - started < 2000, 'the deadline did not hold');
 });
 
+// Two ways a response stalls: nothing arrives, or the headers do and the body
+// never finishes. The deadline has to bound the whole call, not just the first.
+const STALLS = {
+    'no response': () => new Promise(() => {}),
+    'a body that never ends': async () => new Response(new ReadableStream({ start() {} }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+    }),
+};
+
+// Set BELOW the client's, so the only deadline that can fire in time is the
+// per-call one, and its message names which one it was.
+test('a per-call timeoutMs bounds downloads below the client default', async () => {
+    for (const [name, stall] of Object.entries(STALLS)) {
+        const client = new InternetData({ retries: 0, timeoutMs: 10_000, fetch: stall });
+        const started = Date.now();
+        await assert.rejects(
+            () => client.database.downloads({ limit: 5, timeoutMs: 80 }),
+            (err) => {
+                assert.ok(err instanceof InternetDataError, `${name}: wrong error type`);
+                assert.equal(err.kind, 'network', name);
+                assert.equal(err.retryable, true, name);
+                assert.match(err.message, /timed out after 80ms/, name);
+                return true;
+            },
+        );
+        assert.ok(Date.now() - started < 2000, `${name}: the per-call deadline did not hold`);
+    }
+});
+
+// Per ATTEMPT, like the client-level one: a retried call gets a fresh budget.
+test('a per-call timeoutMs applies to each attempt', async () => {
+    let calls = 0;
+    const client = new InternetData({
+        retries: 1,
+        timeoutMs: 10_000,
+        fetch: () => {
+            calls++;
+            return new Promise(() => {});
+        },
+    });
+    await assert.rejects(
+        () => client.database.downloads({ timeoutMs: 80 }),
+        (err) => err instanceof InternetDataError && /timed out after 80ms/.test(err.message),
+    );
+    assert.equal(calls, 2, 'one attempt plus one retry, each abandoned at its own deadline');
+});
+
+test('a per-call timeoutMs never reaches the wire', async () => {
+    const c = clientFor({ body: { downloads: [] } });
+
+    await c.client.database.downloads({ limit: 5, timeoutMs: 5000 });
+
+    assert.deepEqual([...c.calls[0].url.searchParams.keys()], ['limit']);
+});
+
 test('a dataset transfer is exempt from the deadline', async () => {
     // Serves the 302 slowly enough to blow a tiny budget, then a body that
     // arrives after it. Only the API leg is bounded, so the transfer completes.

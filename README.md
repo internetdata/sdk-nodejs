@@ -17,7 +17,7 @@ Requires Node.js 22 or newer. TypeScript types are included.
 
 ## Usage
 
-Every call needs an API key carrying the `db.download` scope. Databases are licensed by contract rather than bought self-serve, so a key arrives with the licence; see the [API documentation](https://docs.internetdata.io/api) or write to [dev@internetdata.io](mailto:dev@internetdata.io).
+Every call needs an API key carrying the `db.download` scope. Databases are licensed by contract rather than bought self-serve, so a key arrives with the license; see the [API documentation](https://docs.internetdata.io/api) or write to [dev@internetdata.io](mailto:dev@internetdata.io).
 
 ```js
 import { InternetData } from '@internetdata/internetdata';
@@ -29,7 +29,7 @@ for (const db of await client.database.list()) {
 }
 ```
 
-`list()` returns one entry per database FAMILY, because a licence is held against the family while a download names a specific version. `standing` is `licensed` if the family is yours today, `expired` if the term has ended, and `unlicensed` if it is published but has never been bought. `versions` carries the ids you pass everywhere else, oldest first, and the formats each one is actually built in.
+`list()` returns one entry per database FAMILY, because a license is held against the family while a download names a specific version. `standing` is `licensed` if the family is yours today, `expired` if the term has ended, and `unlicensed` if it is published but has never been bought. `versions` carries the ids you pass everywhere else, oldest first, and the formats each one is actually built in.
 
 ### What is inside a database
 
@@ -54,7 +54,7 @@ const written = await client.database.download('vpn_ip_v1', 'mmdb', './vpn_ip_v1
 console.log(`${written} bytes`);
 ```
 
-The bytes go to a neighbouring `.part` file and the name only appears once the transfer completes, so an interruption cannot leave a truncated file that reads as a whole database. You can pass a writable stream instead of a path, in which case it stays yours to close and gets no such treatment.
+The bytes go to a neighboring `.part` file and the name only appears once the transfer completes, so an interruption cannot leave a truncated file that reads as a whole database. You can pass a writable stream instead of a path, in which case it stays yours to close and gets no such treatment.
 
 Or take the link and run the transfer yourself. The API answers a redirect to time-limited object storage, and that URL authorizes itself, so it can be handed to something holding no API key:
 
@@ -66,6 +66,16 @@ Or, for a small database, take the bytes directly:
 
 ```js
 const bytes = await client.database.downloadBytes('bogon_ip_v1', 'csvgz');
+```
+
+The formats are `csvgz` and `mmdb`. They're exported as `DATABASE_FORMATS`, beside `STANDINGS` and `LICENSE_TYPES`, for code that takes one from a command line or a config file. Anything else is refused before a request goes out, as a `bad_request` naming the formats that exist:
+
+```js
+import { DATABASE_FORMATS } from '@internetdata/internetdata';
+
+if (!DATABASE_FORMATS.includes(format)) {
+    console.error(`--format must be one of ${DATABASE_FORMATS.join(', ')}`);
+}
 ```
 
 `downloadBytes` holds the whole file in memory and the catalog spans seven orders of magnitude, from a few hundred bytes to over 5 GiB, so use `download` for anything you have not checked with `metadata` first.

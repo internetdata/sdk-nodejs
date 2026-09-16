@@ -7,7 +7,8 @@
 // Runs against dist/, which is what actually ships.
 
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
@@ -85,6 +86,51 @@ test('the closed vocabularies match the corpus exactly', () => {
     assert.deepEqual([...DATABASE_FORMATS].sort(), [...data.formats].sort());
     assert.deepEqual([...STANDINGS].sort(), [...data.standings].sort());
     assert.deepEqual([...LICENSE_TYPES].sort(), [...data.license_type].sort());
+});
+
+// The generated union guards a TypeScript caller and nobody else, so a format
+// from a CLI flag or a JS caller has to be refused from the RUNTIME list, before
+// it costs a request. Every download method goes through the same check.
+test('an unpublished format is refused locally and costs no request', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'internetdata-format-'));
+    try {
+        for (const format of ['zip', 'MMDB', 'csv.gz', '', undefined]) {
+            const c8n = client({ body: {} });
+            const calls = {
+                checksums: () => c8n.client.database.checksums('small_v1', format),
+                downloadUrl: () => c8n.client.database.downloadUrl('small_v1', format),
+                download: () => c8n.client.database.download('small_v1', format, join(dir, 'f')),
+                downloadBytes: () => c8n.client.database.downloadBytes('small_v1', format),
+            };
+            for (const [method, call] of Object.entries(calls)) {
+                await assert.rejects(call, (err) => {
+                    assert.ok(err instanceof InternetDataError, `${method}(${format}): wrong error type`);
+                    assert.equal(err.kind, 'bad_request', `${method}(${format})`);
+                    assert.equal(err.retryable, false, `${method}(${format})`);
+                    assert.equal(err.status, undefined, `${method}(${format}) answered without a response`);
+                    for (const allowed of DATABASE_FORMATS) {
+                        assert.ok(err.message.includes(allowed), `${method} must name ${allowed}`);
+                    }
+                    return true;
+                });
+            }
+            assert.equal(c8n.calls.length, 0, `${JSON.stringify(format)} reached the network`);
+        }
+        assert.deepEqual(readdirSync(dir), [], 'a refused download must not touch the destination');
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+// The other half, so a check that refused EVERYTHING cannot pass: each published
+// format goes out as asked.
+test('every published format reaches the network', async () => {
+    for (const format of DATABASE_FORMATS) {
+        const c8n = client({ body: { id: 'small_v1', format: format, checksums: {} } });
+        await c8n.client.database.checksums('small_v1', format);
+        assert.equal(c8n.calls.length, 1, format);
+        assert.equal(new URL(c8n.calls[0].url).searchParams.get('format'), format);
+    }
 });
 
 // One handler per rule in the corpus, and the corpus decides which rules exist:

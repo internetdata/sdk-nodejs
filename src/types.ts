@@ -8,7 +8,7 @@ export type {
     DbChecksums, Download, Standing,
 };
 
-/** What a licence permits you to do with the data. `null` when there is none. */
+/** What a license permits you to do with the data. `null` when there is none. */
 export type LicenseType = Database['license_type'];
 
 /**

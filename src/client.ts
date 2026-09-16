@@ -15,6 +15,7 @@ import type {
 } from './generated/types.gen.js';
 
 import { errorFromResponse, InternetDataError, messageFromBody } from './errors.js';
+import { DATABASE_FORMATS } from './types.js';
 import type {
     Database, DatabaseFormat, DatabaseMetadata, DbChecksums, Download,
 } from './types.js';
@@ -35,6 +36,11 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export interface DownloadsOptions {
     /** How many attempts to return, newest first. The API clamps this to 200. */
     limit?: number;
+    /**
+     * How long one attempt may take before it is abandoned, in milliseconds, for
+     * THIS call only. Defaults to the client's `timeoutMs`.
+     */
+    timeoutMs?: number;
 }
 
 export interface Options {
@@ -142,6 +148,7 @@ export class DatabaseApi {
      * publishes is the API's choice, not ours.
      */
     async checksums(id: string, format: DatabaseFormat): Promise<DbChecksums> {
+        assertFormat(format);
         return withRetry(this.retries, async () => {
             const res = await deadline(this.timeoutMs, (signal) => databaseChecksumV2({
                 client: this.client, query: { id: id, format: format }, signal: signal,
@@ -157,8 +164,9 @@ export class DatabaseApi {
      * and its absence answers nothing.
      */
     async downloads(options: DownloadsOptions = {}): Promise<Download[]> {
+        const timeoutMs = options.timeoutMs ?? this.timeoutMs;
         return withRetry(this.retries, async () => {
-            const res = await deadline(this.timeoutMs, (signal) => listDownloads({
+            const res = await deadline(timeoutMs, (signal) => listDownloads({
                 client: this.client,
                 ...(options.limit === undefined ? {} : { query: { limit: options.limit } }),
                 signal: signal,
@@ -177,6 +185,7 @@ export class DatabaseApi {
      * transfer, so one already running is not interrupted when it lapses.
      */
     async downloadUrl(id: string, format: DatabaseFormat): Promise<string> {
+        assertFormat(format);
         return withRetry(this.retries, async () => {
             const res = await deadline(this.timeoutMs, (signal) => downloadRedirect({
                 client: this.client,
@@ -311,6 +320,25 @@ function bearerOnly(apiKey: string): (auth: { scheme?: string }) => string | und
 // The generated client puts a non-2xx body on `error` rather than `data`, and
 // types `response` as optional because a transport failure produces neither.
 interface Res { data?: unknown, error?: unknown, response?: Response }
+
+/**
+ * Refuses a format the API does not publish, before the network sees it.
+ *
+ * The generated union guards a TypeScript caller at compile time and nobody
+ * else: a format arriving from a CLI flag, a form field or a model is a plain
+ * string, and without this it costs a round trip and comes back as a 400 whose
+ * message names nothing the caller can act on. Every download method reaches the
+ * network through `downloadUrl`, so this covers all three of them.
+ */
+function assertFormat(format: DatabaseFormat): void {
+    if (DATABASE_FORMATS.includes(format)) {
+        return;
+    }
+    throw new InternetDataError(
+        'bad_request',
+        `invalid format ${JSON.stringify(format)}; must be one of ${DATABASE_FORMATS.join(', ')}`,
+    );
+}
 
 function unwrap<T>(res: Res): T {
     if (res.response === undefined) {
