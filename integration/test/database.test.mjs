@@ -75,7 +75,7 @@ test('a database the organization does not license is refused cleanly', { skip: 
         assert.ok(err instanceof InternetDataError, 'a refusal must arrive as the library error type');
         assert.equal(err.kind, 'forbidden');
         assert.equal(err.status, 403);
-        assert.equal(err.retryable, false, 'a licence refusal is not worth retrying');
+        assert.equal(err.retryable, false, 'a license refusal is not worth retrying');
         // The API says which refusal this is (`{"rc":"NOT_LICENSED"}`). Falling
         // back to the status means the client never read the envelope.
         assert.ok(
