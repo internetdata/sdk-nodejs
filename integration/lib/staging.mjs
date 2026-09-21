@@ -2,12 +2,17 @@
 // to remember about a request, and the two targets everything else is derived
 // from.
 
+import { createRequire } from 'node:module';
+
 import { InternetData } from '@internetdata/internetdata';
 
 import { stagingKey } from './key.mjs';
 
 export const STAGING = 'https://staging.internetdata.io';
 export const STAGING_ORIGIN = new URL(STAGING).origin;
+
+const require = createRequire(import.meta.url);
+export const INSTALLED_VERSION = require('@internetdata/internetdata/package.json').version;
 
 // 8 MiB. The staging organization is licensed for the two smallest published
 // families, a few hundred bytes each, so this is four orders of magnitude of
@@ -16,6 +21,29 @@ export const STAGING_ORIGIN = new URL(STAGING).origin;
 // several GiB, and the whole point of checking `metadata` first is that a
 // mistaken id can never quietly pull one of them through CI.
 export const CEILING = 8 * 1024 * 1024;
+
+// The suite runs against whatever the REGISTRY offers, which lags the working
+// tree between releases. A method added since the last publish is not a
+// failure, so its tests name the version they need and skip until it lands.
+export function needsVersion(min, what) {
+    const have = triple(INSTALLED_VERSION);
+    const want = triple(min);
+    for (let i = 0; i < 3; i++) {
+        if (have[i] === want[i]) {
+            continue;
+        }
+        if (have[i] > want[i]) {
+            return false;
+        }
+        return `${what} landed in ${min}, and the registry currently offers ${INSTALLED_VERSION}`;
+    }
+    return false;
+}
+
+function triple(version) {
+    const parts = version.split(/[-+]/)[0].split('.');
+    return [0, 1, 2].map((i) => Number(parts[i]) || 0);
+}
 
 const facts = [];
 

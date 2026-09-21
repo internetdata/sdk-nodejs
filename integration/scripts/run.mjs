@@ -6,13 +6,11 @@
 //
 //   node scripts/run.mjs
 //
-// Two conditions make the run meaningless rather than failing, and each one
-// skips with a reason instead:
-//
-//   1. Nothing on the registry satisfies the declared range. Before the first
-//      release there is no published artifact to test.
-//   2. The staging key is missing. Every endpoint this API has is authenticated,
-//      so without it there is nothing at all to exercise.
+// Nothing on the registry satisfying the declared range makes the run
+// meaningless rather than failing, so it skips with a reason instead: before the
+// first release there is no published artifact to test. A missing staging key
+// costs only the database half, which skips from inside the suite with a named
+// reason; the OAuth checks carry no key and run regardless.
 //
 // npm, deliberately, not pnpm: the repo root carries a pnpm workspace whose
 // `minimumReleaseAge` would refuse a version published minutes ago, and a
@@ -51,10 +49,8 @@ function main() {
     }
     console.log(`==> ${PACKAGE}@${range} matches published ${versions.join(', ')}`);
     assertRangeAdmitsLatest(range, versions);
-
     if (stagingKey() === '') {
-        skip(`${KEY_VAR} is not set, so nothing can be exercised against staging`);
-        return;
+        notice(`${KEY_VAR} is not set, so the database half skips`);
     }
 
     // Both removed so every run resolves the range afresh. A kept lockfile would
