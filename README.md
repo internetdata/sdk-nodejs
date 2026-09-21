@@ -17,7 +17,7 @@ Requires Node.js 22 or newer. TypeScript types are included.
 
 ## Usage
 
-Every call needs an API key carrying the `db.download` scope. Databases are licensed by contract rather than bought self-serve, so a key arrives with the license; see the [API documentation](https://docs.internetdata.io/api) or write to [dev@internetdata.io](mailto:dev@internetdata.io).
+Every database call needs an API key carrying the `db.download` scope. Databases are licensed by contract rather than bought self-serve, so a key arrives with the license; see the [API documentation](https://docs.internetdata.io/api) or write to [dev@internetdata.io](mailto:dev@internetdata.io).
 
 ```js
 import { InternetData } from '@internetdata/internetdata';
