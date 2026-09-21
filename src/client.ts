@@ -1,5 +1,3 @@
-import pRetry from 'p-retry';
-
 import type { Writable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -14,7 +12,9 @@ import type {
     ListDownloadsResponses,
 } from './generated/types.gen.js';
 
-import { errorFromResponse, InternetDataError, messageFromBody } from './errors.js';
+import { errorFromResponse, InternetDataError } from './errors.js';
+import { OauthApi } from './oauth.js';
+import { deadline, unwrap, withRetry } from './transport.js';
 import { DATABASE_FORMATS } from './types.js';
 import type {
     Database, DatabaseFormat, DatabaseMetadata, DbChecksums, Download,
@@ -73,13 +73,20 @@ export interface Options {
  * one organization and nothing it learns may be reused for another key.
  *
  * The key is optional, and an absent one sends no `Authorization` header rather
- * than an empty one. Every endpoint published today is licensed, so a keyless
- * client is answered `401` for now; it exists because what the API serves
- * without a license is a product decision, not the client's to refuse.
+ * than an empty one. `oauth` needs none. Every database published today is
+ * licensed, so a keyless `database` call is answered `401` for now; it exists
+ * because what the API serves without a license is a product decision, not the
+ * client's to refuse.
  */
 export class InternetData {
     /** The database catalog, downloads and their history. */
     readonly database: DatabaseApi;
+
+    /**
+     * Sign a person in with the OAuth device flow, so a program on their own
+     * machine can be handed one of their API keys. Needs no API key.
+     */
+    readonly oauth: OauthApi;
 
     constructor(options: Options = {}) {
         // Resolved once, because the download path calls object storage
@@ -91,9 +98,10 @@ export class InternetData {
             ...(options.apiKey === undefined ? {} : { auth: bearerOnly(options.apiKey) }),
             fetch: fetchImpl,
         }));
-        this.database = new DatabaseApi(
-            client, options.retries ?? 2, options.timeoutMs ?? DEFAULT_TIMEOUT_MS, fetchImpl,
-        );
+        const retries = options.retries ?? 2;
+        const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+        this.database = new DatabaseApi(client, retries, timeoutMs, fetchImpl);
+        this.oauth = new OauthApi(client, retries, timeoutMs);
     }
 }
 
@@ -317,10 +325,6 @@ function bearerOnly(apiKey: string): (auth: { scheme?: string }) => string | und
     return (auth) => (auth.scheme === 'bearer' ? apiKey : undefined);
 }
 
-// The generated client puts a non-2xx body on `error` rather than `data`, and
-// types `response` as optional because a transport failure produces neither.
-interface Res { data?: unknown, error?: unknown, response?: Response }
-
 /**
  * Refuses a format the API does not publish, before the network sees it.
  *
@@ -338,74 +342,4 @@ function assertFormat(format: DatabaseFormat): void {
         'bad_request',
         `invalid format ${JSON.stringify(format)}; must be one of ${DATABASE_FORMATS.join(', ')}`,
     );
-}
-
-function unwrap<T>(res: Res): T {
-    if (res.response === undefined) {
-        throw new InternetDataError('network', 'no response from the API');
-    }
-    if (!res.response.ok) {
-        throw errorFromResponse(
-            res.response.status, res.response.headers, messageFromBody(res.error ?? res.data),
-        );
-    }
-    return res.data as T;
-}
-
-// p-retry owns the backoff schedule; the extra sleep here is what honors a
-// server-supplied Retry-After, which p-retry has no way to know about. A 429
-// carrying that header is the only 429 worth retrying, which is why the wait
-// and the retry decision both key off the same field.
-/**
- * Bound one attempt, and report an expiry as our own error rather than the
- * runtime's `TimeoutError`, whose message says nothing about which call gave up.
- *
- * Raced, not left to the signal alone: aborting releases the socket, but only
- * a transport that HONORS the signal then settles, and a substituted `fetch`
- * need not. Clearing the timer stops the losing side rejecting into nothing.
- */
-async function deadline<T>(timeoutMs: number, fn: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    const expiry = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-            controller.abort();
-            reject(new InternetDataError('network', `request timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-    });
-    try {
-        return await Promise.race([fn(controller.signal), expiry]);
-    } finally {
-        clearTimeout(timer!);
-    }
-}
-
-async function withRetry<T>(retries: number, fn: () => Promise<T>): Promise<T> {
-    try {
-        return await pRetry(fn, {
-            retries: retries,
-            shouldRetry: ({ error }) => !(error instanceof InternetDataError) || error.retryable,
-            onFailedAttempt: async ({ error }) => {
-                const seconds = error instanceof InternetDataError
-                    ? error.retryAfterSeconds
-                    : undefined;
-                if (seconds !== undefined && seconds > 0) {
-                    await new Promise((r) => setTimeout(r, seconds * 1000));
-                }
-            },
-        });
-    } catch (err) {
-        throw asError(err);
-    }
-}
-
-function asError(err: unknown): InternetDataError {
-    if (err instanceof InternetDataError) {
-        return err;
-    }
-    const cause = (err as { cause?: unknown })?.cause;
-    if (cause instanceof InternetDataError) {
-        return cause;
-    }
-    return new InternetDataError('network', err instanceof Error ? err.message : String(err));
 }

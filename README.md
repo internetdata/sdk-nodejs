@@ -119,6 +119,27 @@ Note that `rate_limited` and `quota_exceeded` both arrive as HTTP 429 and are no
 
 A failure part way through a transfer is rethrown as it arrived rather than wrapped: a reset socket and a full disk are different problems, and only one of them is ours.
 
+### Sign in with OAuth (device flow)
+
+A program running on the person's own machine can let them sign in with a browser and pick one of their API keys, instead of asking them to paste it:
+
+```js
+const client = new InternetData();
+
+const device = await client.oauth.deviceAuthorization('your-client-id', {
+    scope: 'account.read apikeys.read apikeys.reveal',
+});
+console.log(`Open ${device.verification_uri} and enter ${device.user_code}`);
+
+const token = await client.oauth.pollDeviceToken('your-client-id', device);
+if (token.apikey === undefined) {
+    throw new Error("no API key came back: none was picked, or it can't be shown again");
+}
+const keyed = new InternetData({ apiKey: token.apikey });
+```
+
+A denied sign-in rejects with `OauthAccessDeniedError` and a code that ran out with `OauthExpiredTokenError`. Client IDs are issued on request from support@internetdata.io, and `client.oauth.revoke('your-client-id', token.refresh_token)` signs the machine out again.
+
 ## Other Libraries
 
 There are official InternetData client libraries available for many languages including PHP, Python, Go, Java, Ruby, and many popular frameworks such as Django, Rails, and Laravel. See our GitHub at https://github.com/internetdata for more.

@@ -182,23 +182,46 @@ const STALLS = {
     }),
 };
 
+// Every call that takes per-call options, each surfacing its failure as a
+// rejection.
+const PER_CALL = {
+    'database.downloads': (c, o) => c.database.downloads({ limit: 5, ...o }),
+    'oauth.metadata': (c, o) => c.oauth.metadata(o),
+    'oauth.deviceAuthorization': (c, o) => c.oauth.deviceAuthorization('your-client-id', o),
+    'oauth.exchangeDeviceCode': (c, o) => c.oauth.exchangeDeviceCode('your-client-id', 'mo_dc_x', o),
+    'oauth.exchangeRefreshToken': (c, o) => c.oauth.exchangeRefreshToken('your-client-id', 'mo_rt_x', o),
+    'oauth.revoke': (c, o) => c.oauth.revoke('your-client-id', 'mo_rt_x', o),
+    // Waits nothing, and parks rather than spinning if the poll never ends.
+    'oauth.pollDeviceToken': (c, o) => {
+        let waits = 0;
+        c.oauth.clock = {
+            now: () => 0,
+            sleep: () => (++waits > 16 ? new Promise(() => {}) : Promise.resolve()),
+        };
+        const device = {
+            device_code: 'mo_dc_x', user_code: 'x', verification_uri: 'x', expires_in: 900, interval: 5,
+        };
+        return c.oauth.pollDeviceToken('your-client-id', device, o);
+    },
+};
+
 // Set BELOW the client's, so the only deadline that can fire in time is the
 // per-call one, and its message names which one it was.
-test('a per-call timeoutMs bounds downloads below the client default', async () => {
-    for (const [name, stall] of Object.entries(STALLS)) {
-        const client = new InternetData({ retries: 0, timeoutMs: 10_000, fetch: stall });
-        const started = Date.now();
-        await assert.rejects(
-            () => client.database.downloads({ limit: 5, timeoutMs: 80 }),
-            (err) => {
-                assert.ok(err instanceof InternetDataError, `${name}: wrong error type`);
-                assert.equal(err.kind, 'network', name);
-                assert.equal(err.retryable, true, name);
-                assert.match(err.message, /timed out after 80ms/, name);
+test('a per-call timeoutMs bounds every call below the client default', async () => {
+    for (const [stallName, stall] of Object.entries(STALLS)) {
+        for (const [call, invoke] of Object.entries(PER_CALL)) {
+            const client = new InternetData({ retries: 0, timeoutMs: 10_000, fetch: stall });
+            const label = `${call}, ${stallName}`;
+            const started = Date.now();
+            await assert.rejects(() => invoke(client, { timeoutMs: 80 }), (err) => {
+                assert.ok(err instanceof InternetDataError, `${label}: wrong error type`);
+                assert.equal(err.kind, 'network', label);
+                assert.equal(err.retryable, true, label);
+                assert.match(err.message, /timed out after 80ms/, label);
                 return true;
-            },
-        );
-        assert.ok(Date.now() - started < 2000, `${name}: the per-call deadline did not hold`);
+            });
+            assert.ok(Date.now() - started < 2000, `${label}: the per-call deadline did not hold`);
+        }
     }
 });
 
