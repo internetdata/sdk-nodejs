@@ -118,11 +118,9 @@ export class DatabaseApi {
      * The published catalog as your organization may see it, one entry per
      * database FAMILY, with `standing` saying where your license stands.
      *
-     * **This listing is not the same for everyone, and it is not cached.** A
-     * database commissioned for a single customer is absent for every other
-     * organization rather than listed as unlicensed, so the answer is only ever
-     * the one this key's organization is entitled to see. Ask again rather than
-     * holding on to it, and never carry one key's answer over to another.
+     * This is the server's answer for this key, and it is not cached: ask again
+     * rather than holding on to it, and never carry one key's answer over to
+     * another.
      */
     async list(): Promise<Database[]> {
         return withRetry(this.retries, async () => {
