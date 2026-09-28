@@ -18,9 +18,11 @@ const MIB = Buffer.alloc(1024 * 1024, 0x61);
 // Serves the API's 302 and the object storage it points at, on one origin, and
 // records every request so a test can assert what did NOT happen.
 //
-// `storageRefusals` is how many storage requests are answered 503 before the file is served.
+// `storageRefusals` is how many storage requests are answered 503 before the file is served,
+// or 429 with `storageRetryAfter` where one is set.
 function origin({
     blobBytes = SMALL.length, storageStatus = 200, dieAfterBytes = null, storageRefusals = 0,
+    storageRetryAfter = null,
 } = {}) {
     const seen = [];
     const server = createServer((req, res) => {
@@ -41,7 +43,8 @@ function origin({
             return;
         }
         if (blobRequests({ seen: seen }) <= storageRefusals) {
-            res.writeHead(503);
+            res.writeHead(storageRetryAfter === null ? 503 : 429,
+                storageRetryAfter === null ? {} : { 'retry-after': storageRetryAfter });
             res.end();
             return;
         }
@@ -231,6 +234,29 @@ test('a storage 5xx before the body is retried', async (t) => {
     assert.equal(blobRequests(o), 2, 'object storage should see the 503 and its retry');
     assert.equal(outcome.err, undefined);
     assert.deepEqual(Buffer.from(outcome.bytes), SMALL);
+});
+
+// setTimeout runs a delay past 2^31 - 1 ms as 1 ms and prints a TimeoutOverflowWarning,
+// which through 2.3.0 is how object storage's Retry-After of 2147484 s or more was waited:
+// on the caller's stderr. The backoff alone waits it now, as for the API's.
+test('a storage Retry-After past what setTimeout holds waits the backoff, with no warning', async (t) => {
+    const o = await start({ storageRefusals: 1, storageRetryAfter: '2147484' });
+    t.after(() => o.server.close());
+    const client = new InternetData({ apiKey: 'k', baseUrl: o.baseUrl, retries: 1 });
+    const warnings = [];
+    const listener = (warning) => {
+        if (warning.name === 'TimeoutOverflowWarning') {
+            warnings.push(warning.message);
+        }
+    };
+    process.on('warning', listener);
+    t.after(() => process.off('warning', listener));
+
+    const bytes = await client.database.downloadBytes('small_v1', 'csvgz');
+
+    assert.equal(blobRequests(o), 2, 'object storage should see the 429 and its retry');
+    assert.deepEqual(Buffer.from(bytes), SMALL);
+    assert.deepEqual(warnings, []);
 });
 
 for (const method of ['download', 'downloadBytes']) {

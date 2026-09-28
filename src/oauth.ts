@@ -8,7 +8,9 @@ import {
     errorFromResponse, InternetDataError, messageFromBody, OauthError, oauthErrorFrom,
     OauthExpiredTokenError,
 } from './errors.js';
-import { asError, checkTimeout, deadline, withRetry, type Res } from './transport.js';
+import {
+    asError, checkTimeout, deadline, MAX_TIMEOUT_MS, withRetry, type Res,
+} from './transport.js';
 
 /** Per-call overrides for one OAuth request. Anything omitted falls back to the client's setting. */
 export interface OauthOptions {
@@ -182,10 +184,11 @@ export class OauthApi {
      *
      * Waits `device.interval` seconds (5 when that is below 1) before EVERY
      * request, the first included, and 5 more for the rest of the call each time
-     * the server answers `slow_down`. Ends at the first answer that is neither:
-     * a denial rejects with `OauthAccessDeniedError`, a code that ran out with
-     * `OauthExpiredTokenError` - as does outliving `device.expires_in`, counted
-     * from this call, with no `status` - and any other failure as it came.
+     * the server answers `slow_down`. No wait runs past `device.expires_in`: one
+     * that would ends at it, with no request after. Ends at the first answer that
+     * is neither: a denial rejects with `OauthAccessDeniedError`, a code that ran
+     * out with `OauthExpiredTokenError` - as does outliving `device.expires_in`,
+     * counted from this call, with no `status` - and any other failure as it came.
      */
     async pollDeviceToken(
         clientId: string, device: DeviceAuthorization, options: PollDeviceTokenOptions = {},
@@ -195,7 +198,12 @@ export class OauthApi {
         let interval = device.interval >= 1 ? device.interval : 5;
         const expires = this.clock.now() + device.expires_in * 1000;
         for (;;) {
-            await this.clock.sleep(interval * 1000, options.signal);
+            // Only to the deadline: past it the outcome is the local expiry anyway,
+            // and the interval is the server's word, whatever it says. Compared
+            // rather than Math.min'd, so an expiry that is not a number leaves the
+            // interval in charge instead of a 1 ms sleep.
+            const left = Math.max(expires - this.clock.now(), 0);
+            await this.clock.sleep(left < interval * 1000 ? left : interval * 1000, options.signal);
             if (this.clock.now() >= expires) {
                 throw new OauthExpiredTokenError();
             }
@@ -340,7 +348,18 @@ function hasType(value: unknown, type: Member['type']): boolean {
     return typeof value === type;
 }
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+// setTimeout runs anything past MAX_TIMEOUT_MS as 1 ms, so a longer wait is
+// taken in parts; a poll under a huge interval would otherwise ask back to back.
+async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    let left = ms;
+    do {
+        const part = Math.min(left, MAX_TIMEOUT_MS);
+        await sleepFor(part, signal);
+        left -= part;
+    } while (left > 0);
+}
+
+function sleepFor(ms: number, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
         if (signal?.aborted) {
             reject(signal.reason);

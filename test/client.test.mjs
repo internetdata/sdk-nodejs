@@ -382,3 +382,31 @@ test('a timeout no attempt can meet is refused per call, before any request', as
     }
     assert.equal(stub.paths.length, 0, 'a refused timeout sent a request');
 });
+
+// setTimeout runs a delay past 2^31 - 1 ms as 1 ms and prints a
+// TimeoutOverflowWarning, which through 2.3.0 is how a Retry-After of 2147484 s
+// or more was waited: on the caller's stderr. The backoff alone waits it now.
+test('a Retry-After past what setTimeout holds waits the backoff, with no warning', async (t) => {
+    const warnings = timeoutWarnings(t);
+    const limited = clientFor(
+        [{ status: 429, body: { rc: 'RATE_LIMITED' }, headers: { 'retry-after': '2147484' } },
+            { body: { databases: [] } }],
+        { retries: 1 },
+    );
+
+    assert.deepEqual(await limited.client.database.list(), []);
+    assert.equal(limited.calls.length, 2);
+    assert.deepEqual(warnings, []);
+});
+
+function timeoutWarnings(t) {
+    const seen = [];
+    const listener = (warning) => {
+        if (warning.name === 'TimeoutOverflowWarning') {
+            seen.push(warning.message);
+        }
+    };
+    process.on('warning', listener);
+    t.after(() => process.off('warning', listener));
+    return seen;
+}

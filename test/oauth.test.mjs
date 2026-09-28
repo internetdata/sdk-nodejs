@@ -243,6 +243,39 @@ test('aborting a poll during its first wait settles at once, with the reason', a
     assert.equal(stub.requests.length, 0, 'no request after the abort');
 });
 
+// No corpus case, which sleeps on a fake clock: setTimeout runs anything past
+// 2^31 - 1 ms as 1 ms, so through 2.3.0 an interval of 2147483647 s had the real
+// poll ask back to back, 1438 times in 2 s. The wait is taken in parts instead.
+test('a wait past what setTimeout holds is waited, not asked back to back', async () => {
+    const stub = oauthStub([{ status: 400, body: { error: 'authorization_pending' } }], 1);
+    const client = oauthClient(stub);
+    const controller = new AbortController();
+    const reason = new Error('the caller gave up');
+    setTimeout(() => controller.abort(reason), 100);
+
+    const outcome = await within(1500, settle(client.oauth.pollDeviceToken('internetdata-cli',
+        { ...DEVICE, expires_in: 2147483648, interval: 2147483647 }, { signal: controller.signal }),
+    stub.bound));
+
+    assert.equal(outcome, reason);
+    assert.equal(stub.requests.length, 0, 'the poll asked instead of waiting');
+});
+
+// No corpus case: an expiry that is not a number, as a device built by hand can
+// carry, leaves the interval in charge. Taking the lesser of the two would make
+// every wait NaN, which setTimeout runs as 1 ms.
+test('an expiry that is not a number leaves the interval in charge', async () => {
+    const stub = oauthStub([{ status: 400, body: { error: 'access_denied' } }]);
+    const client = oauthClient(stub);
+    const waits = fakeClock(client, stub.bound);
+
+    const outcome = await settle(client.oauth.pollDeviceToken('internetdata-cli',
+        { ...DEVICE, expires_in: NaN, interval: 3 }), stub.bound);
+
+    assert.ok(outcome instanceof OauthAccessDeniedError, String(outcome));
+    assert.deepEqual(waits, [3]);
+});
+
 test('aborting a poll during a request settles at once, with the reason', async () => {
     const stub = oauthStub([{ hang: true }], 1);
     const client = oauthClient(stub, { timeoutMs: 10_000 });

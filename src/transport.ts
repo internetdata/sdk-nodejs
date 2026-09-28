@@ -82,7 +82,8 @@ export async function deadline<T>(
 // p-retry owns the backoff schedule; the extra sleep here is what honors a
 // server-supplied Retry-After, which p-retry has no way to know about. A 429
 // carrying that header is the only 429 worth retrying, which is why the wait
-// and the retry decision both key off the same field.
+// and the retry decision both key off the same field. One past what setTimeout
+// runs as asked is waited out on the backoff alone, still a throttle.
 export async function withRetry<T>(retries: number, fn: () => Promise<T>): Promise<T> {
     try {
         return await pRetry(fn, {
@@ -90,7 +91,7 @@ export async function withRetry<T>(retries: number, fn: () => Promise<T>): Promi
             shouldRetry: ({ error }) => !(error instanceof InternetDataError) || error.retryable,
             onFailedAttempt: async ({ error }) => {
                 const seconds = error instanceof InternetDataError ? error.retryAfterSeconds : undefined;
-                if (seconds !== undefined && seconds > 0) {
+                if (seconds !== undefined && seconds > 0 && seconds * 1000 <= MAX_TIMEOUT_MS) {
                     await new Promise((r) => setTimeout(r, seconds * 1000));
                 }
             },
