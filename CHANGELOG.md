@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.3.1 - 2026-09-28
+
+### Fixes
+
+- Drop every trailing slash, and refuse a timeout no attempt can meet ([`679b0d8`](https://github.com/internetdata/sdk-nodejs/commit/679b0d84aece8c0f52a4c0b16171f4e62a2d6af2))
+- End the poll's sleep at its deadline, and wait past setTimeout's ceiling ([`2b0f7f0`](https://github.com/internetdata/sdk-nodejs/commit/2b0f7f023a2d4aba537b2c5486d03eff52c80556))
+
 ## 2.3.0 - 2026-09-27
 
 ### Features
