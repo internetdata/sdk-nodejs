@@ -14,7 +14,7 @@ import type {
 
 import { errorFromResponse, InternetDataError } from './errors.js';
 import { OauthApi } from './oauth.js';
-import { deadline, unwrap, withRetry } from './transport.js';
+import { checkTimeout, deadline, unwrap, withRetry } from './transport.js';
 import { DATABASE_FORMATS } from './types.js';
 import type {
     Database, DatabaseFormat, DatabaseMetadata, DbChecksums, Download,
@@ -56,6 +56,7 @@ export interface Options {
     /**
      * How long one API call may take before it is abandoned, in milliseconds.
      * Default 30000, per attempt, so a retried call may take longer in total.
+     * A value outside 1 to 2147483647 is refused as `bad_request`.
      *
      * **A dataset transfer is deliberately exempt.** It is a sane bound on a
      * metadata call and the wrong one on a body that reaches gigabytes.
@@ -94,12 +95,14 @@ export class InternetData {
         // the same implementation a test substituted.
         const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
         const client = createClient(createConfig({
-            baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+            // Every path appended starts with a slash, and a second one is another
+            // path, which the API answers with a redirect.
+            baseUrl: (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, ''),
             ...(options.apiKey === undefined ? {} : { auth: bearerOnly(options.apiKey) }),
             fetch: fetchImpl,
         }));
         const retries = options.retries ?? 2;
-        const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? DEFAULT_TIMEOUT_MS;
         this.database = new DatabaseApi(client, retries, timeoutMs, fetchImpl);
         this.oauth = new OauthApi(client, retries, timeoutMs);
     }
@@ -170,7 +173,7 @@ export class DatabaseApi {
      * and its absence answers nothing.
      */
     async downloads(options: DownloadsOptions = {}): Promise<Download[]> {
-        const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
         return withRetry(this.retries, async () => {
             const res = await deadline(timeoutMs, (signal) => listDownloads({
                 client: this.client,

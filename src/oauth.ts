@@ -8,7 +8,7 @@ import {
     errorFromResponse, InternetDataError, messageFromBody, OauthError, oauthErrorFrom,
     OauthExpiredTokenError,
 } from './errors.js';
-import { asError, deadline, withRetry, type Res } from './transport.js';
+import { asError, checkTimeout, deadline, withRetry, type Res } from './transport.js';
 
 /** Per-call overrides for one OAuth request. Anything omitted falls back to the client's setting. */
 export interface OauthOptions {
@@ -98,6 +98,7 @@ export class OauthApi {
     ) {}
 
     async metadata(options: OauthOptions = {}): Promise<OauthMetadata> {
+        checkTimeout(options.timeoutMs);
         return withRetry(this.retries, async () => {
             const res = await deadline(options.timeoutMs ?? this.timeoutMs, (signal) => oauthMetadata({
                 client: this.client, signal: signal,
@@ -119,7 +120,7 @@ export class OauthApi {
             scope: options.scope || undefined,
             resource: options.resource || undefined,
         };
-        const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
         return withRetry(this.retries, async () => {
             const res = await deadline(timeoutMs, (signal) => oauthDeviceAuthorization({
                 client: this.client, body: body, signal: signal,
@@ -163,6 +164,7 @@ export class OauthApi {
      * only itself. The server answers the same for any token, known or not.
      */
     async revoke(clientId: string, token: string, options: OauthOptions = {}): Promise<void> {
+        checkTimeout(options.timeoutMs);
         await withRetry(this.retries, async () => {
             const res = await deadline(options.timeoutMs ?? this.timeoutMs, (signal) => oauthRevoke({
                 client: this.client,
@@ -188,6 +190,8 @@ export class OauthApi {
     async pollDeviceToken(
         clientId: string, device: DeviceAuthorization, options: PollDeviceTokenOptions = {},
     ): Promise<TokenResponse> {
+        // Before the first wait, which an impossible value would otherwise sit out.
+        checkTimeout(options.timeoutMs);
         let interval = device.interval >= 1 ? device.interval : 5;
         const expires = this.clock.now() + device.expires_in * 1000;
         for (;;) {
@@ -216,6 +220,7 @@ export class OauthApi {
     private async exchange(
         form: TokenRequest, timeoutMs?: number, cancel?: AbortSignal,
     ): Promise<TokenResponse> {
+        checkTimeout(timeoutMs);
         const res = await deadline(timeoutMs ?? this.timeoutMs, (signal) => oauthToken({
             client: this.client, body: form, signal: signal,
         }), cancel);

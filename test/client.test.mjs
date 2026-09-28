@@ -297,3 +297,88 @@ test('the key is sent in the Authorization header and nowhere else', async () =>
     assert.equal(seen.query, null, 'the key must never reach a URL');
     assert.equal(seen.xApiKey, null, 'one credential form, not three');
 });
+
+// Answers every call the way its path expects and records the paths, so a
+// doubled slash shows up as a path rather than as whatever a server makes of it.
+function pathRecordingFetch() {
+    const paths = [];
+    const fn = async (input, init) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        const path = new URL(request.url).pathname;
+        paths.push(path);
+        if (path.endsWith('/download')) {
+            return new Response(null, { status: 302, headers: { location: 'https://s3.invalid/f' } });
+        }
+        const body = path.endsWith('oauth-authorization-server')
+            ? { issuer: 'x', authorization_endpoint: 'x', token_endpoint: 'x' }
+            : { databases: [] };
+        return new Response(JSON.stringify(body), {
+            status: 200, headers: { 'content-type': 'application/json' },
+        });
+    };
+    return { fetch: fn, paths: paths };
+}
+
+// Every path the client appends starts with a slash. One trailing slash on the
+// base URL was dropped, but through 2.3.0 a second doubled into every path
+// (//api/v2/database/list), which the API answers with a redirect.
+test('every trailing slash on the base URL is dropped', async (t) => {
+    for (const suffix of ['/', '//', '///']) {
+        await t.test(JSON.stringify(suffix), async () => {
+            const stub = pathRecordingFetch();
+            const client = new InternetData({
+                baseUrl: `https://api.example.test${suffix}`, apiKey: KEY, fetch: stub.fetch, retries: 0,
+            });
+            await client.database.list();
+            await client.database.downloadUrl('small_v1', 'csvgz');
+            await client.oauth.metadata();
+            await client.oauth.revoke('internetdata-cli', 'mo_rt_x');
+            assert.deepEqual(stub.paths, [
+                '/api/v2/database/list', '/api/v2/database/download',
+                '/.well-known/oauth-authorization-server', '/oauth/revoke',
+            ]);
+        });
+    }
+});
+
+// setTimeout runs 0, a negative, NaN, Infinity and anything past 2^31 - 1 ms as
+// 1 ms, so through 2.3.0 each failed every call as a timeout 1 ms in, retried.
+// Refused where set instead, and per call before the poll's first wait.
+const IMPOSSIBLE_TIMEOUTS = [0, -1, NaN, Infinity, 2 ** 31, '5000'];
+
+test('a timeout no attempt can meet is refused on the client', () => {
+    for (const timeoutMs of IMPOSSIBLE_TIMEOUTS) {
+        assert.throws(() => new InternetData({ timeoutMs: timeoutMs }),
+            (err) => err instanceof InternetDataError && err.kind === 'bad_request', String(timeoutMs));
+    }
+    for (const timeoutMs of [1, 2 ** 31 - 1]) {
+        assert.doesNotThrow(() => new InternetData({ timeoutMs: timeoutMs }), String(timeoutMs));
+    }
+});
+
+test('a timeout no attempt can meet is refused per call, before any request', async () => {
+    const stub = pathRecordingFetch();
+    const client = new InternetData({ apiKey: KEY, fetch: stub.fetch, retries: 0 });
+    const calls = {
+        'downloads': (o) => client.database.downloads(o),
+        'metadata': (o) => client.oauth.metadata(o),
+        'deviceAuthorization': (o) => client.oauth.deviceAuthorization('internetdata-cli', o),
+        'exchangeDeviceCode': (o) => client.oauth.exchangeDeviceCode('internetdata-cli', 'mo_dc_x', o),
+        'exchangeRefreshToken': (o) => client.oauth.exchangeRefreshToken('internetdata-cli', 'mo_rt_x', o),
+        'revoke': (o) => client.oauth.revoke('internetdata-cli', 'mo_rt_x', o),
+        'pollDeviceToken': (o) => client.oauth.pollDeviceToken('internetdata-cli', {
+            device_code: 'mo_dc_x', user_code: 'x', verification_uri: 'x', expires_in: 900, interval: 2,
+        }, o),
+    };
+    // Before its first wait, not after sitting out the interval.
+    const started = performance.now();
+    await assert.rejects(calls.pollDeviceToken({ timeoutMs: 0 }), InternetDataError);
+    assert.ok(performance.now() - started < 1000, 'the poll waited before refusing');
+    for (const timeoutMs of IMPOSSIBLE_TIMEOUTS) {
+        for (const [name, call] of Object.entries(calls)) {
+            await assert.rejects(call({ timeoutMs: timeoutMs }),
+                (err) => err instanceof InternetDataError && err.kind === 'bad_request', `${name}: ${timeoutMs}`);
+        }
+    }
+    assert.equal(stub.paths.length, 0, 'a refused timeout sent a request');
+});
