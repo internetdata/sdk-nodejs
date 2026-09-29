@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.4.0 - 2026-09-29
+
+### Features
+
+- Add the authorization code sign-in, with PKCE ([`b4a875e`](https://github.com/internetdata/sdk-nodejs/commit/b4a875e41b76881b31178a6cac57166553e15f42))
+
 ## 2.3.2 - 2026-09-29
 
 ### Fixes
