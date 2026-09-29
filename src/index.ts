@@ -2,8 +2,8 @@ export { InternetData, DatabaseApi, DEFAULT_BASE_URL } from './client.js';
 export type { DownloadDestination, DownloadsOptions, Options } from './client.js';
 export { OauthApi } from './oauth.js';
 export type {
-    OauthOptions, DeviceAuthorizationOptions, PollDeviceTokenOptions,
-    OauthMetadata, DeviceAuthorization, TokenResponse,
+    OauthOptions, DeviceAuthorizationOptions, PollDeviceTokenOptions, AuthorizationUrlOptions,
+    OauthMetadata, DeviceAuthorization, TokenResponse, Pkce,
 } from './oauth.js';
 export {
     InternetDataError, OauthError, OauthAccessDeniedError, OauthExpiredTokenError,
