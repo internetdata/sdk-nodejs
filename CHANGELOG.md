@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.3.2 - 2026-09-29
+
+### Fixes
+
+- README: link the evaluation request, not a mailbox ([`dca724b`](https://github.com/internetdata/sdk-nodejs/commit/dca724b0c86351998a0a85bc9239d4ab6fe72b40))
+
 ## 2.3.1 - 2026-09-28
 
 ### Fixes
