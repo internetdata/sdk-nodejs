@@ -5,7 +5,7 @@
 
 The official Node.js client library for the [InternetData](https://internetdata.io) API.
 
-InternetData publishes IP databases: VPN and proxy address space, hosting and CDN ranges, provider catalogs, bogons and more, as gzipped CSV and as MMDB. This library lists the databases your organization is licensed for, tells you what is inside one before you fetch it, downloads it, and verifies the bytes you got.
+InternetData publishes IP and ASN databases: geolocation, anonymity, ownership and network data, as gzipped CSV and as MMDB. This library lists the databases your organization is licensed for, tells you what is inside one before you fetch it, downloads it, and verifies the bytes you got.
 
 ## Getting Started
 
@@ -164,7 +164,7 @@ There are official InternetData client libraries available for many languages in
 
 ## About InternetData
 
-IP intelligence databases: VPN, proxy, hosting, CDN and relay address space, provider catalogs and network metadata, published as CSV and MMDB.
+Geolocation, anonymity, ownership and network databases for IP addresses and AS numbers, licensed as files you download and query yourself.
 
 [<img src="https://s3.internetdata.io/internetdata-public/brand/mark.svg" alt="InternetData" height="64"/>](https://internetdata.io/)
 
