@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.4.1 - 2026-10-04
+
+### Fixes
+
+- Re-pin the spec to 2026.10.03: metadata needs no license ([`e064300`](https://github.com/internetdata/sdk-nodejs/commit/e06430099723639ce29ac67e18af30186bb922b0))
+
 ## 2.4.0 - 2026-09-29
 
 ### Features
