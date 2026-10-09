@@ -106,8 +106,9 @@ test('checksums unwraps past the envelope', async () => {
 
 test('downloads unwraps the envelope and passes a limit only when given one', async () => {
     const row = {
-        dataset_id: 'small_v1', format: 'csvgz', outcome: 'ok', bytes: 264, http_status: 302,
-        apikey_id: 'k', client_ip: '203.0.113.1', user_agent: 'x', created: '2026-09-04T00:00:00Z',
+        dataset_id: 'small_v1', format: 'csvgz', outcome: 'ok', sample: false, open: true, bytes: 264,
+        http_status: 302, apikey_id: 'k', client_ip: '203.0.113.1', user_agent: 'x',
+        created: '2026-09-04T00:00:00Z',
     };
     const c = clientFor({ body: { downloads: [row] } });
 

@@ -142,12 +142,12 @@ const VISIBILITY_RULES = {
             databases: [
                 {
                     base: 'public_one', name: 'Public One', summary: 'a', standing: 'licensed',
-                    license_type: 'standard', starts: null, expires: null,
+                    open: false, license_type: 'standard', starts: null, expires: null,
                     versions: [{ id: 'public_one_v1', version: 1, summary: 'a', formats: ['csvgz'] }],
                 },
                 {
                     base: 'public_two', name: 'Public Two', summary: 'b', standing: 'unlicensed',
-                    license_type: null, starts: null, expires: null,
+                    open: true, license_type: null, starts: null, expires: null,
                     versions: [{ id: 'public_two_v1', version: 1, summary: 'b', formats: ['mmdb'] }],
                 },
             ],
