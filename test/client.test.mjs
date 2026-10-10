@@ -146,6 +146,21 @@ test('a 429 is retried only when it carries Retry-After', async () => {
     assert.equal(spent.calls.length, 1, 'a spent allowance must not be hammered');
 });
 
+test('a Retry-After is not waited out when no retry is left', async () => {
+    const limited = clientFor(
+        { status: 429, body: { rc: 'RATE_LIMITED' }, headers: { 'retry-after': '3' } },
+        { retries: 0 },
+    );
+    const started = Date.now();
+    await assert.rejects(() => limited.client.database.list(), (err) => {
+        assert.equal(err.kind, 'rate_limited');
+        assert.equal(err.retryAfterSeconds, 3);
+        return true;
+    });
+    assert.equal(limited.calls.length, 1);
+    assert.ok(Date.now() - started < 1000, `failed after ${Date.now() - started} ms`);
+});
+
 test('a transport failure surfaces as a network error', async () => {
     const client = new InternetData({
         apiKey: KEY,

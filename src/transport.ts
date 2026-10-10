@@ -89,7 +89,12 @@ export async function withRetry<T>(retries: number, fn: () => Promise<T>): Promi
         return await pRetry(fn, {
             retries: retries,
             shouldRetry: ({ error }) => !(error instanceof InternetDataError) || error.retryable,
-            onFailedAttempt: async ({ error }) => {
+            // p-retry runs this hook before it checks retriesLeft, so the last attempt
+            // waited out its Retry-After and only then failed (2.5.0, measured 2026-10-09).
+            onFailedAttempt: async ({ error, retriesLeft }) => {
+                if (retriesLeft <= 0) {
+                    return;
+                }
                 const seconds = error instanceof InternetDataError ? error.retryAfterSeconds : undefined;
                 if (seconds !== undefined && seconds > 0 && seconds * 1000 <= MAX_TIMEOUT_MS) {
                     await new Promise((r) => setTimeout(r, seconds * 1000));
