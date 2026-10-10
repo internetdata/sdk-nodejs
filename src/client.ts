@@ -14,7 +14,10 @@ import type {
 
 import { errorFromResponse, InternetDataError } from './errors.js';
 import { OauthApi } from './oauth.js';
-import { checkTimeout, deadline, unwrap, withRetry } from './transport.js';
+import {
+    isChecksumsResponse, isDatabaseList, isDatabaseMetadata, isDownloadList,
+} from './shapes.js';
+import { checkTimeout, deadline, readable, unwrap, withRetry } from './transport.js';
 import { DATABASE_FORMATS } from './types.js';
 import type {
     Database, DatabaseFormat, DatabaseMetadata, DbChecksums, Download,
@@ -130,7 +133,7 @@ export class DatabaseApi {
             const res = await deadline(this.timeoutMs, (signal) => listDatabases({
                 client: this.client, signal: signal,
             }));
-            return unwrap<ListDatabasesResponses[200]>(res).databases;
+            return readable<ListDatabasesResponses[200]>(res, isDatabaseList).databases;
         });
     }
 
@@ -146,7 +149,7 @@ export class DatabaseApi {
             const res = await deadline(this.timeoutMs, (signal) => databaseMetadataV2({
                 client: this.client, query: { id: id }, signal: signal,
             }));
-            return unwrap<DatabaseMetadataV2Responses[200]>(res);
+            return readable<DatabaseMetadataV2Responses[200]>(res, isDatabaseMetadata);
         });
     }
 
@@ -162,7 +165,7 @@ export class DatabaseApi {
             const res = await deadline(this.timeoutMs, (signal) => databaseChecksumV2({
                 client: this.client, query: { id: id, format: format }, signal: signal,
             }));
-            return unwrap<DatabaseChecksumV2Responses[200]>(res).checksums;
+            return readable<DatabaseChecksumV2Responses[200]>(res, isChecksumsResponse).checksums;
         });
     }
 
@@ -180,7 +183,7 @@ export class DatabaseApi {
                 ...(options.limit === undefined ? {} : { query: { limit: options.limit } }),
                 signal: signal,
             }));
-            return unwrap<ListDownloadsResponses[200]>(res).downloads;
+            return readable<ListDownloadsResponses[200]>(res, isDownloadList).downloads;
         });
     }
 

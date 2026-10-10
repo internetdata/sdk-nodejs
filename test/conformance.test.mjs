@@ -126,7 +126,9 @@ test('an unpublished format is refused locally and costs no request', async () =
 // format goes out as asked.
 test('every published format reaches the network', async () => {
     for (const format of DATABASE_FORMATS) {
-        const c8n = client({ body: { id: 'small_v1', format: format, checksums: {} } });
+        const c8n = client({
+            body: { id: 'small_v1', format: format, checksums: { md5: 'a', sha1: 'b', sha256: 'c', sha512: 'd' } },
+        });
         await c8n.client.database.checksums('small_v1', format);
         assert.equal(c8n.calls.length, 1, format);
         assert.equal(new URL(c8n.calls[0].url).searchParams.get('format'), format);
