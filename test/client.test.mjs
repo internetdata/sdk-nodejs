@@ -129,6 +129,55 @@ test('a 5xx is retried and a success on a later attempt is returned', async () =
     assert.equal(c.calls.length, 2);
 });
 
+// Digits, or one of RFC 9110's three date forms in GMT, and nothing else: through
+// 2.5.1 `Number` and `Date.parse` read `+1`, `0x10`, `1e3`, `1.5`, ISO dates, other
+// zones and 31 November as throttles, and asctime as local time.
+test('a Retry-After is seconds or an HTTP date and nothing else', async () => {
+    const at = (offset) => new Date(Date.now() + offset);
+    const day = (d) => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getUTCDay()];
+    const forms = {
+        imf: (d) => d.toUTCString(),
+        rfc850: (d) => {
+            const [, dd, mon, yyyy, time] = d.toUTCString().split(' ');
+            return `${day(d)}, ${dd}-${mon}-${yyyy.slice(2)} ${time} GMT`;
+        },
+        asctime: (d) => {
+            const [wkd, , mon, yyyy, time] = d.toUTCString().split(' ');
+            return `${wkd.slice(0, 3)} ${mon} ${String(d.getUTCDate()).padStart(2, ' ')} ${time} ${yyyy}`;
+        },
+    };
+    for (const [form, format] of Object.entries(forms)) {
+        // Computed when its case runs: a date fixed up front can pass before it is served.
+        const c = clientFor({ status: 429, body: { rc: 'RATE_LIMITED' }, headers: { 'retry-after': format(at(10_000)) } });
+        await assert.rejects(() => c.client.database.list(), (err) => {
+            assert.equal(err.kind, 'rate_limited', form);
+            assert.ok(err.retryAfterSeconds >= 8 && err.retryAfterSeconds <= 11, `${form}: ${err.retryAfterSeconds}`);
+            return true;
+        });
+    }
+    for (const value of ['7', '0']) {
+        const c = clientFor({ status: 429, body: { rc: 'RATE_LIMITED' }, headers: { 'retry-after': value } });
+        await assert.rejects(() => c.client.database.list(), (err) => {
+            assert.equal(err.kind, 'rate_limited', value);
+            assert.equal(err.retryAfterSeconds, Number(value));
+            return true;
+        });
+    }
+    const spent = [
+        '+1', '-1', 'x', 'tomorrow', '1e400', '0x10', '0b11', '1_0', '1e3', '1.5', '2099-01-01',
+        '2099-01-01T00:00:00', 'Jan 1 2099', 'Sun, 31 Nov 2099 08:49:37 GMT', 'Fri, 01 Jan 2099 00:00:00 PST',
+        'Fri, 01 Jan 2099 00:00:00 +0500', 'Fri, 01 Jan 2099 24:00:00 GMT', 'Xyz, 01 Jan 2099 00:00:00 GMT',
+    ];
+    for (const value of spent) {
+        const c = clientFor({ status: 429, body: { rc: 'RATE_LIMITED' }, headers: { 'retry-after': value } }, { retries: 2 });
+        await assert.rejects(() => c.client.database.list(), (err) => {
+            assert.equal(err.kind, 'quota_exceeded', value);
+            return true;
+        });
+        assert.equal(c.calls.length, 1, value);
+    }
+});
+
 test('a 429 is retried only when it carries Retry-After', async () => {
     const limited = clientFor(
         [{ status: 429, body: { rc: 'RATE_LIMITED' }, headers: { 'retry-after': '0' } },
