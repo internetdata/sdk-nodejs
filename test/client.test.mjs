@@ -55,7 +55,7 @@ function clientFor(replies, options = {}) {
 // its own signature to follow it. What must never happen is `Authorization:
 // Bearer ` with nothing after it, which reads as a wrong key rather than none.
 test('a client builds with no key and sends no authorization header', async () => {
-    for (const options of [{}, { apiKey: undefined }, { apiKey: '' }]) {
+    for (const options of [{}, { apiKey: undefined }, { apiKey: '' }, { apiKey: '   ' }, { apiKey: '\t' }, { apiKey: ' \n' }]) {
         const s = stub({ body: { databases: [] } });
         const client = new InternetData({ fetch: s.fetch, retries: 0, ...options });
 
@@ -127,6 +127,26 @@ test('a 5xx is retried and a success on a later attempt is returned', async () =
 
     assert.deepEqual(await c.client.database.list(), []);
     assert.equal(c.calls.length, 2);
+});
+
+test('a key is sent without the blanks around it', async () => {
+    const c = clientFor({ body: { databases: [] } }, { apiKey: ` ${KEY}\n` });
+
+    await c.client.database.list();
+
+    assert.equal(c.calls[0].authorization, `Bearer ${KEY}`);
+});
+
+// fetch refuses a header holding one, so through 2.5.1 every call failed as a
+// retried network error with nothing sent; a CRLF would otherwise start a header.
+test('a key holding a control character is refused where it is set', () => {
+    for (const apiKey of ['k\x01ey', 'key\r\nX-Injected: 1', 'k\u007fey', 42]) {
+        assert.throws(() => new InternetData({ apiKey: apiKey }), (err) => {
+            assert.ok(err instanceof InternetDataError);
+            assert.equal(err.kind, 'bad_request');
+            return true;
+        }, JSON.stringify(apiKey));
+    }
 });
 
 // Digits, or one of RFC 9110's three date forms in GMT, and nothing else: through

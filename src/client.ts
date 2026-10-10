@@ -97,11 +97,12 @@ export class InternetData {
         // directly rather than through the generated client and has to reach
         // the same implementation a test substituted.
         const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+        const apiKey = checkApiKey(options.apiKey);
         const client = createClient(createConfig({
             // Every path appended starts with a slash, and a second one is another
             // path, which the API answers with a redirect.
             baseUrl: (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, ''),
-            ...(options.apiKey === undefined ? {} : { auth: bearerOnly(options.apiKey) }),
+            ...(apiKey === undefined ? {} : { auth: bearerOnly(apiKey) }),
             fetch: fetchImpl,
         }));
         const retries = options.retries ?? 2;
@@ -325,6 +326,26 @@ export class DatabaseApi {
  * Returning undefined for the other schemes is what suppresses them; the
  * generated `getAuthToken` drops a scheme whose callback yields nothing.
  */
+/**
+ * The key without the blanks around it, and no key at all for blanks alone,
+ * which went out as `Authorization: Bearer` (2.5.1, measured 2026-10-10). A
+ * control character inside it is refused here: fetch refuses such a header, so
+ * every call failed as a retried `network` error with nothing sent.
+ */
+function checkApiKey(apiKey: unknown): string | undefined {
+    if (apiKey === undefined) {
+        return undefined;
+    }
+    if (typeof apiKey !== 'string') {
+        throw new InternetDataError('bad_request', `apiKey must be a string, got ${typeof apiKey}`);
+    }
+    const key = apiKey.trim();
+    if (/[\u0000-\u001f\u007f]/.test(key)) {
+        throw new InternetDataError('bad_request', 'apiKey must not contain a control character');
+    }
+    return key === '' ? undefined : key;
+}
+
 function bearerOnly(apiKey: string): (auth: { scheme?: string }) => string | undefined {
     return (auth) => (auth.scheme === 'bearer' ? apiKey : undefined);
 }
