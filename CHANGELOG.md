@@ -2,6 +2,14 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.5.2 - 2026-10-10
+
+### Fixes
+
+- Read a Retry-After as seconds or an HTTP date, and nothing else ([`790afe2`](https://github.com/internetdata/sdk-nodejs/commit/790afe286ea954cf91171b4ebc931815e8f351cb))
+- Retry a 2xx a database call cannot read, as a server_error with its status ([`0108438`](https://github.com/internetdata/sdk-nodejs/commit/0108438e37a716ac8bef2ee4bde0cac181774f39))
+- Send the API key trimmed, none for blanks, and refuse a control character ([`2c25cc5`](https://github.com/internetdata/sdk-nodejs/commit/2c25cc5478cc0f6cc3a48a8e588aa89014dac62b))
+
 ## 2.5.1 - 2026-10-10
 
 ### Fixes
