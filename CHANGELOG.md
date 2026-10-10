@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.5.1 - 2026-10-10
+
+### Fixes
+
+- Re-pin the spec to 2026.10.09: rotating a key needs apikeys.reveal ([`e932898`](https://github.com/internetdata/sdk-nodejs/commit/e9328981d9929d7bdd5f0490627030b30a28973f))
+- Fail a throttled call at once when no retry is left ([`349f0dd`](https://github.com/internetdata/sdk-nodejs/commit/349f0ddf543e4dd88e4dd0717e00532ed05b2fe5))
+
 ## 2.5.0 - 2026-10-09
 
 ### Features
