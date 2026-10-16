@@ -67,6 +67,49 @@ test('a 2xx a database call cannot read is a retried server_error carrying its s
     }
 });
 
+// Through 2.5.4 only presence was checked, so a version served as "3" came back
+// as that string, and every member below came back as served.
+test('a member of the wrong type is a retried server_error carrying its status', async () => {
+    const version = { id: 'bogon_asn_v1', version: 1, summary: 's', formats: ['csvgz'] };
+    const database = {
+        base: 'bogon_asn', name: 'n', summary: 's', standing: 'licensed', open: false, license_type: null,
+        starts: null, expires: null, versions: [version],
+    };
+    const metadata = {
+        id: 'bogon_asn_v1', updated: '2026-09-04', entries: 1,
+        schema: { csvgz: [{ name: 'ip', type: 'string' }] }, size: { csvgz: 760 },
+    };
+    const download = {
+        dataset_id: 'bogon_asn_v1', format: 'csvgz', outcome: 'ok', sample: false, open: false, bytes: 760,
+        http_status: 302, apikey_id: null, client_ip: null, user_agent: null, created: '2026-09-04T10:00:00Z',
+    };
+    const list = (c) => c.database.list();
+    const meta = (c) => c.database.metadata('bogon_asn_v1');
+    const cases = {
+        'a version of "3"': [list, { databases: [{ ...database, versions: [{ ...version, version: '3' }] }] }],
+        'a version of 1.5': [list, { databases: [{ ...database, versions: [{ ...version, version: 1.5 }] }] }],
+        'a format of 1': [list, { databases: [{ ...database, versions: [{ ...version, formats: [1] }] }] }],
+        'a base of 7': [list, { databases: [{ ...database, base: 7 }] }],
+        'open as "false"': [list, { databases: [{ ...database, open: 'false' }] }],
+        'a license_type of 1': [list, { databases: [{ ...database, license_type: 1 }] }],
+        'entries of "1"': [meta, { ...metadata, entries: '1' }],
+        'a size of "760"': [meta, { ...metadata, size: { csvgz: '760' } }],
+        'a column name of 1': [meta, { ...metadata, schema: { csvgz: [{ name: 1, type: 'string' }] } }],
+        'an md5 of 7': [(c) => c.database.checksums('bogon_asn_v1', 'csvgz'),
+            { checksums: { md5: 7, sha1: 's', sha256: 's', sha512: 's' } }],
+        'bytes of "760"': [(c) => c.database.downloads(), { downloads: [{ ...download, bytes: '760' }] }],
+    };
+    for (const [name, [call, answer]] of Object.entries(cases)) {
+        const c = rawClient(body(JSON.stringify(answer)));
+        await assert.rejects(() => call(c.client), (err) => {
+            assert.equal(err.kind, 'server_error', `${name}: ${err.message}`);
+            assert.equal(err.status, 200, name);
+            return true;
+        });
+        assert.equal(c.calls.length, 3, `${name} is retried`);
+    }
+});
+
 test('a readable answer still comes back', async () => {
     const version = { id: 'bogon_asn_v1', version: 1, summary: 's', formats: ['csvgz'] };
     const database = {
