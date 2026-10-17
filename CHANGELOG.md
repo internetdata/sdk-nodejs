@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.6.0 - 2026-10-17
+
+### Features
+
+- Re-pin the spec to 2026.10.16: dynamic client registration ([`da4aaf3`](https://github.com/internetdata/sdk-nodejs/commit/da4aaf3ae67e228921c0f780d7d1e385aba6a5b4))
+
 ## 2.5.5 - 2026-10-16
 
 ### Fixes
