@@ -11,7 +11,7 @@ import {
     OauthExpiredTokenError,
 } from './errors.js';
 import {
-    asError, checkTimeout, deadline, MAX_TIMEOUT_MS, withRetry, type Res,
+    checkTimeout, deadline, MAX_TIMEOUT_MS, withRetry, type Res,
 } from './transport.js';
 
 /** Per-call overrides for one OAuth request. Anything omitted falls back to the client's setting. */
@@ -391,8 +391,9 @@ const TOKEN_RESPONSE: Record<keyof TokenResponse, Member> = {
 function decode<T>(res: Res, members: Record<keyof T, Member>): T {
     const status = throwIfFailed(res).status;
     if (res.error !== undefined) {
-        // A 2xx the generated client could not parse, which reports it here.
-        throw asError(res.error);
+        // A 2xx the generated client could not parse, which reports it here: as
+        // unreadable as an object missing a member, so the same retried error.
+        throw new InternetDataError('server_error', 'the answer was not JSON', status);
     }
     const body = res.data;
     if (!isObject(body)) {
