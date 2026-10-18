@@ -2,6 +2,16 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.0 - 2026-10-18
+
+### Features
+
+- Add oauth.register, for RFC 7591 dynamic client registration ([`f4b08d6`](https://github.com/internetdata/sdk-nodejs/commit/f4b08d68bc55cb0b276d6101eae89b6efaebc8e3))
+
+### Fixes
+
+- Report an OAuth answer that is not JSON as a server_error with its status ([`e9c0fa6`](https://github.com/internetdata/sdk-nodejs/commit/e9c0fa60e748ad9fe0d4575d1e0d94a22a643d92))
+
 ## 2.6.0 - 2026-10-17
 
 ### Features
