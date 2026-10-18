@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.1 - 2026-10-18
+
+### Fixes
+
+- Re-pin the spec to 2026.10.18: client_id_issued_at is int64 ([`46e57e6`](https://github.com/internetdata/sdk-nodejs/commit/46e57e6a6bb2099c2afe530ead56bcb559e5b476))
+
 ## 2.7.0 - 2026-10-18
 
 ### Features
