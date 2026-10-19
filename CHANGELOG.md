@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.2 - 2026-10-19
+
+### Fixes
+
+- Refuse a database sample that is not rows of objects ([`2dd3733`](https://github.com/internetdata/sdk-nodejs/commit/2dd37332bb1c667176a1a99edca30193ac6c4bdf))
+
 ## 2.7.1 - 2026-10-18
 
 ### Fixes
