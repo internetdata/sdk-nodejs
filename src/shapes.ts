@@ -89,6 +89,7 @@ export function isDatabaseMetadata(data: unknown): boolean {
     return typed(data, DATABASE_METADATA_MEMBERS, DATABASE_METADATA_TYPES)
         && values(data['schema'], (columns) => every(columns, (c) => typed(c, ['name', 'type'], COLUMN_TYPES)))
         && values(data['size'], Number.isInteger)
+        && (data['sample'] == null || values(data['sample'], (rows) => every(rows, isObject)))
         && (data['sample_size'] == null || values(data['sample_size'], Number.isInteger));
 }
 
