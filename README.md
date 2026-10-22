@@ -115,7 +115,7 @@ try {
 
 `kind` is one of `bad_request`, `unauthorized`, `forbidden`, `rate_limited`, `quota_exceeded`, `server_error` or `network`. The message is the API's own result code, such as `NOT_LICENSED` or `LICENSE_EXPIRED`, which is usually the specific thing you want to read.
 
-Note that `rate_limited` and `quota_exceeded` both arrive as HTTP 429 and are not the same thing. A rate limit is the API facing a burst, so retrying later works; a spent quota needs your allowance raised or the window to roll over. The library retries the first for you and never the second.
+`rate_limited` is a 429 that carries `Retry-After`, and the library retries it for you. `quota_exceeded` is a 429 without one, which it never retries. InternetData's database API has no quota, so you won't see `quota_exceeded` from it.
 
 A failure part way through a transfer is rethrown as it arrived rather than wrapped: a reset socket and a full disk are different problems, and only one of them is ours.
 
