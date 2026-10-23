@@ -54,7 +54,7 @@ export interface Options {
      */
     apiKey?: string;
     baseUrl?: string;
-    /** Retry attempts for a transient failure. Default 2. */
+    /** Retry attempts for a transient failure, a whole number from 0. Default 2. */
     retries?: number;
     /**
      * How long one API call may take before it is abandoned, in milliseconds.
@@ -105,7 +105,7 @@ export class InternetData {
             ...(apiKey === undefined ? {} : { auth: bearerOnly(apiKey) }),
             fetch: fetchImpl,
         }));
-        const retries = options.retries ?? 2;
+        const retries = checkRetries(options.retries ?? 2);
         const timeoutMs = checkTimeout(options.timeoutMs) ?? DEFAULT_TIMEOUT_MS;
         this.database = new DatabaseApi(client, retries, timeoutMs, fetchImpl);
         this.oauth = new OauthApi(client, retries, timeoutMs);
@@ -314,19 +314,6 @@ export class DatabaseApi {
 }
 
 /**
- * Sends the key in the `Authorization` header and nowhere else.
- *
- * The API accepts three credential forms and the spec documents all three, so
- * the generator applies EVERY one of them - putting the key in the query string
- * of every request alongside the headers. A query string is the one place a
- * secret should never be: it lands in access logs, proxy logs and browser
- * history, none of which we control. `?apikey=` exists for a human with curl or
- * a browser bar, not for a client that can set a header.
- *
- * Returning undefined for the other schemes is what suppresses them; the
- * generated `getAuthToken` drops a scheme whose callback yields nothing.
- */
-/**
  * The key without the blanks around it, and no key at all for blanks alone,
  * which went out as `Authorization: Bearer` (2.5.1, measured 2026-10-10). A
  * control character inside it is refused here: fetch refuses such a header, so
@@ -343,9 +330,42 @@ function checkApiKey(apiKey: unknown): string | undefined {
     if (/[\u0000-\u001f\u007f]/.test(key)) {
         throw new InternetDataError('bad_request', 'apiKey must not contain a control character');
     }
+    // fetch sends a header as Latin-1 and refuses anything past it, so through 2.7.3
+    // such a key failed every call as a retried network error with nothing sent.
+    if (/[^\u0000-\u00ff]/.test(key)) {
+        throw new InternetDataError('bad_request', 'apiKey must not contain a character past U+00FF');
+    }
     return key === '' ? undefined : key;
 }
 
+/**
+ * A retry count p-retry can run, refused where it is set: through 2.7.3 a negative,
+ * NaN or non-number failed every call with p-retry's own TypeError as a `network`
+ * error, and a fraction ended a failing call as one too (measured 2026-10-23).
+ * `Infinity` is p-retry's own unbounded count.
+ */
+function checkRetries(retries: unknown): number {
+    if (typeof retries === 'number' && (Number.isInteger(retries) || retries === Infinity) && retries >= 0) {
+        return retries;
+    }
+    throw new InternetDataError(
+        'bad_request', `retries must be a whole number from 0, got ${String(retries)}`,
+    );
+}
+
+/**
+ * Sends the key in the `Authorization` header and nowhere else.
+ *
+ * The API accepts three credential forms and the spec documents all three, so
+ * the generator applies EVERY one of them - putting the key in the query string
+ * of every request alongside the headers. A query string is the one place a
+ * secret should never be: it lands in access logs, proxy logs and browser
+ * history, none of which we control. `?apikey=` exists for a human with curl or
+ * a browser bar, not for a client that can set a header.
+ *
+ * Returning undefined for the other schemes is what suppresses them; the
+ * generated `getAuthToken` drops a scheme whose callback yields nothing.
+ */
 function bearerOnly(apiKey: string): (auth: { scheme?: string }) => string | undefined {
     return (auth) => (auth.scheme === 'bearer' ? apiKey : undefined);
 }

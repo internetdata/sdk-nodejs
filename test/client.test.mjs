@@ -149,6 +149,39 @@ test('a key holding a control character is refused where it is set', () => {
     }
 });
 
+// fetch sends a header as Latin-1 and refuses anything past it, so through 2.7.3
+// such a key failed every call as a retried network error with nothing sent.
+test('a key holding a character past U+00FF is refused where it is set', async () => {
+    for (const codePoint of [0x100, 0x4e2d, 0x1f600]) {
+        const apiKey = `k${String.fromCodePoint(codePoint)}ey`;
+        assert.throws(() => new InternetData({ apiKey: apiKey }), (err) => {
+            assert.ok(err instanceof InternetDataError);
+            assert.equal(err.kind, 'bad_request');
+            return true;
+        }, codePoint.toString(16));
+    }
+    const latin1 = `k${String.fromCodePoint(0xe9)}${String.fromCodePoint(0x85)}y`;
+    const c = clientFor({ body: { databases: [] } }, { apiKey: latin1 });
+    await c.client.database.list();
+    assert.equal(c.calls[0].authorization, `Bearer ${latin1}`);
+});
+
+// Through 2.7.3 a negative, NaN or non-number failed every call with p-retry's own
+// TypeError as a network error, and a fraction ended a failing call as one too.
+test('a retry count p-retry cannot run is refused where it is set', async () => {
+    for (const retries of [-1, NaN, 1.5, '2', -Infinity]) {
+        assert.throws(() => new InternetData({ retries: retries }), (err) => {
+            assert.ok(err instanceof InternetDataError);
+            assert.equal(err.kind, 'bad_request');
+            return true;
+        }, String(retries));
+    }
+    for (const retries of [0, 1, Infinity]) {
+        const c = clientFor({ body: { databases: [] } }, { retries: retries });
+        assert.deepEqual(await c.client.database.list(), [], String(retries));
+    }
+});
+
 // Digits, or one of RFC 9110's three date forms in GMT, and nothing else: through
 // 2.5.1 `Number` and `Date.parse` read `+1`, `0x10`, `1e3`, `1.5`, ISO dates, other
 // zones and 31 November as throttles, and asctime as local time.
