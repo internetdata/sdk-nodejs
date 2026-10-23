@@ -2,6 +2,14 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.4 - 2026-10-23
+
+### Fixes
+
+- Refuse a checksum answer without its id or format ([`5a27c14`](https://github.com/internetdata/sdk-nodejs/commit/5a27c147182f7c59f1fadcc2db5f77b3df0ad537))
+- Refuse an OAuth integer member that is not a whole number ([`4c51681`](https://github.com/internetdata/sdk-nodejs/commit/4c51681d5bf13f31159e634a3b88a763a82a82b8))
+- Refuse a key past U+00FF and a bad retry count where they are set ([`da94dc8`](https://github.com/internetdata/sdk-nodejs/commit/da94dc8e284b350e9e9ba31c21ee4bc10fb7668b))
+
 ## 2.7.3 - 2026-10-21
 
 ### Fixes
