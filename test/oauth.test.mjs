@@ -176,6 +176,24 @@ test('an answer missing any one required member is the ordinary error', async (t
     }
 });
 
+// Through 2.7.3 these took any number, so each came back as 1.5.
+test('an integer member that is not a whole number is the ordinary error', async (t) => {
+    const args = { clientId: 'internetdata-cli', deviceCode: 'mo_dc_x' };
+    const cases = {
+        'deviceAuthorization: expires_in': [(c) => callOauth(c, 'deviceAuthorization', args), 'expires_in'],
+        'deviceAuthorization: interval': [(c) => callOauth(c, 'deviceAuthorization', args), 'interval'],
+        'exchangeDeviceCode: expires_in': [(c) => callOauth(c, 'exchangeDeviceCode', args), 'expires_in'],
+        'register: client_id_issued_at': [(c) => c.oauth.register(['http://127.0.0.1/cb']), 'client_id_issued_at'],
+    };
+    for (const [name, [call, member]] of Object.entries(cases)) {
+        await t.test(name, async () => {
+            const stub = oauthStub([{ status: 200, body: { ...EVERY_REQUIRED_MEMBER, [member]: 1.5 } }]);
+            const err = await settle(call(oauthClient(stub, { retries: 0 })), stub.bound);
+            assertOutcome(err, { type: 'client', kind: 'server_error', status: 200 }, name);
+        });
+    }
+});
+
 test('a failed answer is an OAuth refusal only when it is one', async (t) => {
     for (const c of corpus.errors.cases) {
         await t.test(c.name, async () => {
