@@ -10,7 +10,8 @@ import { test } from 'node:test';
 
 import { InternetData } from '../dist/index.js';
 import {
-    DATABASE_MEMBERS, DATABASE_METADATA_MEMBERS, DATABASE_VERSION_MEMBERS, DB_CHECKSUMS_MEMBERS, DOWNLOAD_MEMBERS,
+    CHECKSUM_ANSWER_MEMBERS, DATABASE_MEMBERS, DATABASE_METADATA_MEMBERS, DATABASE_VERSION_MEMBERS,
+    DB_CHECKSUMS_MEMBERS, DOWNLOAD_MEMBERS,
 } from '../dist/shapes.js';
 
 function rawClient(reply) {
@@ -102,6 +103,8 @@ test('a member of the wrong type is a retried server_error carrying its status',
         'an md5 of 7': [(c) => c.database.checksums('bogon_asn_v1', 'csvgz'),
             { checksums: { md5: 7, sha1: 's', sha256: 's', sha512: 's' } }],
         'bytes of "760"': [(c) => c.database.downloads(), { downloads: [{ ...download, bytes: '760' }] }],
+        // Unchecked through 2.7.3, so it came back as served.
+        'a client_ip of 5': [(c) => c.database.downloads(), { downloads: [{ ...download, client_ip: 5 }] }],
     };
     for (const [name, [call, answer]] of Object.entries(cases)) {
         const c = rawClient(body(JSON.stringify(answer)));
@@ -112,6 +115,33 @@ test('a member of the wrong type is a retried server_error carrying its status',
         });
         assert.equal(c.calls.length, 3, `${name} is retried`);
     }
+});
+
+// `checksums` hands back the digests alone, so through 2.7.3 nothing read `id` or
+// `format`, and an answer without either, or with one null or of another type, came back.
+test('a checksum answer without its id or format is a retried server_error', async () => {
+    const answer = {
+        id: 'bogon_asn_v1', format: 'csvgz', checksums: { md5: 'a', sha1: 'b', sha256: 'c', sha512: 'd' },
+    };
+    const cases = {
+        'no id': { ...answer, id: undefined },
+        'an id of null': { ...answer, id: null },
+        'an id of 7': { ...answer, id: 7 },
+        'no format': { ...answer, format: undefined },
+        'a format of null': { ...answer, format: null },
+        'a format of 7': { ...answer, format: 7 },
+    };
+    for (const [name, served] of Object.entries(cases)) {
+        const c = rawClient(body(JSON.stringify(served)));
+        await assert.rejects(() => c.client.database.checksums('bogon_asn_v1', 'csvgz'), (err) => {
+            assert.equal(err.kind, 'server_error', `${name}: ${err.message}`);
+            assert.equal(err.status, 200, name);
+            return true;
+        });
+        assert.equal(c.calls.length, 3, `${name} is retried`);
+    }
+    const c = rawClient(body(JSON.stringify(answer)));
+    assert.deepEqual(await c.client.database.checksums('bogon_asn_v1', 'csvgz'), answer.checksums);
 });
 
 test('a readable answer still comes back', async () => {
@@ -139,4 +169,7 @@ test('each checked member list is every required member of its generated type', 
     assert.deepEqual([...DATABASE_METADATA_MEMBERS].sort(), required('DatabaseMetadata'));
     assert.deepEqual([...DB_CHECKSUMS_MEMBERS].sort(), required('DbChecksums'));
     assert.deepEqual([...DOWNLOAD_MEMBERS].sort(), required('Download'));
+    const answer = types.split('export type DatabaseChecksumV2Responses = {\n')[1].split('\n    };')[0];
+    const members = [...answer.matchAll(/^ {8}([a-z][a-z0-9_]*): (.*)$/gm)].map((m) => m[1]).sort();
+    assert.deepEqual([...CHECKSUM_ANSWER_MEMBERS].sort(), members);
 });

@@ -9,6 +9,9 @@ export const DATABASE_MEMBERS = ['base', 'name', 'summary', 'standing', 'open', 
 export const DATABASE_VERSION_MEMBERS = ['id', 'version', 'summary', 'formats'] as const;
 export const DATABASE_METADATA_MEMBERS = ['id', 'updated', 'entries', 'schema', 'size'] as const;
 export const DB_CHECKSUMS_MEMBERS = ['md5', 'sha1', 'sha256', 'sha512'] as const;
+// `checksums` hands back the digests alone, so through 2.7.3 nothing read `id` or
+// `format`, and an answer without either came back as whole (measured 2026-10-23).
+export const CHECKSUM_ANSWER_MEMBERS = ['id', 'format', 'checksums'] as const;
 export const DOWNLOAD_MEMBERS = ['dataset_id', 'format', 'outcome', 'sample', 'open', 'created'] as const;
 
 // Every member's type, the nullable and optional ones included. Through 2.5.4
@@ -31,11 +34,10 @@ const DATABASE_METADATA_TYPES: Record<string, Kind> = {
     sample: 'object', size: 'object', sample_size: 'object', sample_entries: 'integer',
 };
 const COLUMN_TYPES: Record<string, Kind> = { name: 'string', type: 'string', description: 'string' };
-// The client's address is left unchecked: its wire name ends `_ip`, which the
-// conformance guard against a compiled-in catalog reads as a database id.
 const DOWNLOAD_TYPES: Record<string, Kind> = {
     dataset_id: 'string', format: 'string', outcome: 'string', sample: 'boolean', open: 'boolean',
-    bytes: 'integer', http_status: 'integer', apikey_id: 'string', user_agent: 'string', created: 'string',
+    bytes: 'integer', http_status: 'integer', apikey_id: 'string', client_ip: 'string', user_agent: 'string',
+    created: 'string',
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -94,7 +96,7 @@ export function isDatabaseMetadata(data: unknown): boolean {
 }
 
 export function isChecksumsResponse(data: unknown): boolean {
-    return hasMembers(data, ['checksums'])
+    return typed(data, CHECKSUM_ANSWER_MEMBERS, { id: 'string', format: 'string', checksums: 'object' })
         && typed(data['checksums'], DB_CHECKSUMS_MEMBERS, { md5: 'string', sha1: 'string', sha256: 'string', sha512: 'string' });
 }
 

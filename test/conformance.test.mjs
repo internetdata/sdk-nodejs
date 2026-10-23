@@ -164,10 +164,13 @@ const VISIBILITY_RULES = {
         // a listing is the server's answer for THIS key and nothing else can
         // stand in for it.
         const ID = /\b[a-z][a-z0-9_]*_(ip|asn|provider)(_v[0-9]+)?\b/g;
+        // A wire member of the download log, the caller's address, and no database.
+        const MEMBERS = ['client_ip'];
         const dist = new URL('../dist/', import.meta.url);
         for (const name of readdirSync(dist).filter((f) => f.endsWith('.js'))) {
-            const hits = readFileSync(join(dist.pathname, name), 'utf8').match(ID);
-            assert.equal(hits, null, `${name} names ${hits?.join(', ')}`);
+            const hits = (readFileSync(join(dist.pathname, name), 'utf8').match(ID) ?? [])
+                .filter((hit) => !MEMBERS.includes(hit));
+            assert.deepEqual(hits, [], `${name} names ${hits.join(', ')}`);
         }
     },
     'a-listing-is-never-reused-across-clients': async () => {
