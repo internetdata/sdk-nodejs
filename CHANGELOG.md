@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.5 - 2026-10-28
+
+### Fixes
+
+- Refuse a date that is not RFC 3339 ([`9b5127a`](https://github.com/internetdata/sdk-nodejs/commit/9b5127ab73fab4075fe546e791dcb09406e7884d))
+
 ## 2.7.4 - 2026-10-23
 
 ### Fixes
