@@ -19,7 +19,7 @@ export const INSTALLED_VERSION = require('@internetdata/internetdata/package.jso
 // headroom - tripping it means the suite is pointed at something unintended,
 // which is exactly when a transfer must not go ahead. Published builds reach
 // several GiB, and the whole point of checking `metadata` first is that a
-// mistaken id can never quietly pull one of them through CI.
+// mistaken ID can never quietly pull one of them through CI.
 export const CEILING = 8 * 1024 * 1024;
 
 // The suite runs against whatever the REGISTRY offers, which lags the working
@@ -102,7 +102,7 @@ export function databases() {
  * The smallest licensed file this run may move, or a skip reason.
  *
  * Derived rather than named: which families the CI organization holds is a
- * property of the staging database, and a hardcoded id turns a license change
+ * property of the staging database, and a hardcoded ID turns a license change
  * into a red build that says nothing about the client. The size comes from
  * `metadata` BEFORE any transfer, so the ceiling is enforced rather than hoped
  * for.
@@ -137,7 +137,7 @@ export async function smallestLicensedFile() {
 }
 
 /**
- * A real catalog id this organization holds no license for, or a skip reason.
+ * A real catalog ID this organization holds no license for, or a skip reason.
  *
  * Taken from the listing too, so the refusal test cannot go stale by naming a
  * family that has since been bought.

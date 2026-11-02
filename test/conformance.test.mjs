@@ -159,7 +159,7 @@ const VISIBILITY_RULES = {
         assert.deepEqual(await c8n.client.database.list(), served.databases);
     },
     'no-catalog-is-compiled-into-the-client': () => {
-        // The shape of every database id and family name. A client that shipped
+        // The shape of every database ID and family name. A client that shipped
         // its own copy of the catalog, or defaulted to one, would show up here;
         // a listing is the server's answer for THIS key and nothing else can
         // stand in for it.

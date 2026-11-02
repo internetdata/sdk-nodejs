@@ -121,7 +121,7 @@ export function errorFromResponse(
         return new InternetDataError('forbidden', text, status);
     }
     // Any other 4xx is a CLIENT error. Falling through to the server_error
-    // default would make it retryable, so a misspelled dataset id (404
+    // default would make it retryable, so a misspelled dataset ID (404
     // UNKNOWN_DATASET) would be retried twice before failing. Only 5xx and
     // transport failures are worth a retry.
     if (status < 500) {
