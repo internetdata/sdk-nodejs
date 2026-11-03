@@ -119,14 +119,14 @@ test('a member of the wrong type is a retried server_error carrying its status',
 
 // `checksums` hands back the digests alone, so through 2.7.3 nothing read `id` or
 // `format`, and an answer without either, or with one null or of another type, came back.
-test('a checksum answer without its id or format is a retried server_error', async () => {
+test('a checksum answer without its ID or format is a retried server_error', async () => {
     const answer = {
         id: 'bogon_asn_v1', format: 'csvgz', checksums: { md5: 'a', sha1: 'b', sha256: 'c', sha512: 'd' },
     };
     const cases = {
-        'no id': { ...answer, id: undefined },
-        'an id of null': { ...answer, id: null },
-        'an id of 7': { ...answer, id: 7 },
+        'no ID': { ...answer, id: undefined },
+        'an ID of null': { ...answer, id: null },
+        'an ID of 7': { ...answer, id: 7 },
         'no format': { ...answer, format: undefined },
         'a format of null': { ...answer, format: null },
         'a format of 7': { ...answer, format: 7 },

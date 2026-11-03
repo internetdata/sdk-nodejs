@@ -44,7 +44,7 @@ test('the catalog answers the schema the client was generated from', { skip: NO_
         assert.ok(Array.isArray(db.versions) && db.versions.length > 0,
             `${db.base} carries no versions`);
         for (const v of db.versions) {
-            assert.equal(typeof v.id, 'string', `${db.base} has a version with no id`);
+            assert.equal(typeof v.id, 'string', `${db.base} has a version with no ID`);
             assert.equal(typeof v.version, 'number', `${v.id} carries no version number`);
             assert.ok(Array.isArray(v.formats) && v.formats.length > 0, `${v.id} is built in nothing`);
             for (const f of v.formats) {
