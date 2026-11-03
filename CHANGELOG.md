@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.6 - 2026-11-03
+
+### Fixes
+
+- Re-pin the spec to 2026.11.02: ID and IDs in its descriptions ([`63ea5fe`](https://github.com/internetdata/sdk-nodejs/commit/63ea5fea193658bb07d3c24ed0503e53c46ec4fe))
+- Write ID and IDs in prose, never id or ids ([`db8c48a`](https://github.com/internetdata/sdk-nodejs/commit/db8c48a05ed881021316fd51dd5cb701b338b33f))
+
 ## 2.7.5 - 2026-10-28
 
 ### Fixes
