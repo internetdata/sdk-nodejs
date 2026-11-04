@@ -334,8 +334,13 @@ export class OauthApi {
             // rather than Math.min'd, so an expiry that is not a number leaves the
             // interval in charge instead of a 1 ms sleep.
             const left = Math.max(expires - this.clock.now(), 0);
-            await this.clock.sleep(left < interval * 1000 ? left : interval * 1000, options.signal);
-            if (this.clock.now() >= expires) {
+            const toDeadline = left <= interval * 1000;
+            await this.clock.sleep(toDeadline ? left : interval * 1000, options.signal);
+            // A wait that ran to the deadline ends the poll without reading the clock
+            // again: setTimeout wakes before performance.now() has moved its delay, so
+            // through 2.7.6 the poll often asked once more at its deadline (measured
+            // 2026-11-04).
+            if (toDeadline || this.clock.now() >= expires) {
                 throw new OauthExpiredTokenError();
             }
             try {
