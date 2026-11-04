@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.7 - 2026-11-04
+
+### Fixes
+
+- Send no poll at the deadline after a wait that ran to it ([`2c5a127`](https://github.com/internetdata/sdk-nodejs/commit/2c5a127387ec489d7c5b2a1432b62b2360100de5))
+
 ## 2.7.6 - 2026-11-03
 
 ### Fixes
