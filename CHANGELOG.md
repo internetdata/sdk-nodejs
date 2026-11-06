@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.7.8 - 2026-11-06
+
+### Fixes
+
+- Re-pin the spec to 2026.11.05: the download's build parameter ([`2ebc3f7`](https://github.com/internetdata/sdk-nodejs/commit/2ebc3f7c2d9de8f570ef7d203d106ef21facc227))
+
 ## 2.7.7 - 2026-11-04
 
 ### Fixes
