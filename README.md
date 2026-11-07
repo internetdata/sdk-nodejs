@@ -68,6 +68,14 @@ Or, for a small database, take the bytes directly:
 const bytes = await client.database.downloadBytes('bogon_ip_v1', 'csvgz');
 ```
 
+Each of the three downloads the build that is live unless you name one. A `database.updated` webhook names the build it announces and carries its `sha256`, so a receiver that downloads after the next publish asks for that build to get the file the hash is of:
+
+```js
+await client.database.download('vpn_ip_v1', 'mmdb', './vpn_ip_v1.mmdb', { build: event.data.build });
+```
+
+A build is kept 7 days. Past that the call fails as `bad_request` with the message `BUILD_GONE`, and downloading without `build` fetches the live one.
+
 The formats are `csvgz` and `mmdb`. They're exported as `DATABASE_FORMATS`, beside `STANDINGS` and `LICENSE_TYPES`, for code that takes one from a command line or a config file. Anything else is refused before a request goes out, as a `bad_request` naming the formats that exist:
 
 ```js

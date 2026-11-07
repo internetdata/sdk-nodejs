@@ -1,5 +1,7 @@
 export { InternetData, DatabaseApi, DEFAULT_BASE_URL } from './client.js';
-export type { DownloadDestination, DownloadsOptions, Options } from './client.js';
+export type {
+    DownloadDestination, DownloadOptions, DownloadsOptions, DownloadUrlOptions, Options,
+} from './client.js';
 export { OauthApi } from './oauth.js';
 export type {
     OauthOptions, DeviceAuthorizationOptions, PollDeviceTokenOptions, AuthorizationUrlOptions,

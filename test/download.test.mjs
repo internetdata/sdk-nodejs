@@ -104,6 +104,63 @@ test('downloadUrl returns the Location and does not follow it', async (t) => {
     assert.deepEqual(o.seen.map((r) => r.path), ['/api/v2/database/download']);
 });
 
+test('a build goes on the download request, and none without one', async (t) => {
+    const o = await start();
+    t.after(() => o.server.close());
+
+    await o.client.database.downloadUrl('small_v1', 'csvgz', { build: '20261105.0t53s5' });
+    await o.client.database.downloadBytes('small_v1', 'csvgz', { build: '20261105.0t53s5' });
+    await o.client.database.download('small_v1', 'csvgz', join(tmp, 'built.csv.gz'),
+        { build: '20261105.0t53s5' });
+    await o.client.database.downloadUrl('small_v1', 'csvgz', { build: '' });
+    await o.client.database.downloadBytes('small_v1', 'csvgz');
+
+    const asked = o.seen.filter((r) => r.path === '/api/v2/database/download');
+    assert.deepEqual(asked.map((r) => r.query), [
+        { id: 'small_v1', format: 'csvgz', build: '20261105.0t53s5' },
+        { id: 'small_v1', format: 'csvgz', build: '20261105.0t53s5' },
+        { id: 'small_v1', format: 'csvgz', build: '20261105.0t53s5' },
+        { id: 'small_v1', format: 'csvgz' },
+        { id: 'small_v1', format: 'csvgz' },
+    ]);
+});
+
+test('a build that is no string, or a transfer given a timeout, is refused with nothing sent', async (t) => {
+    const o = await start();
+    t.after(() => o.server.close());
+
+    for (const call of [
+        () => o.client.database.downloadUrl('small_v1', 'csvgz', { build: 20261105 }),
+        () => o.client.database.downloadBytes('small_v1', 'csvgz', { build: null }),
+        () => o.client.database.downloadBytes('small_v1', 'csvgz', { timeoutMs: 1000 }),
+        () => o.client.database.download('small_v1', 'csvgz', join(tmp, 'x'), { timeoutMs: 1000 }),
+        () => o.client.database.downloadUrl('small_v1', 'csvgz', { timeoutMs: 0 }),
+    ]) {
+        await assert.rejects(call, (err) => err instanceof InternetDataError && err.kind === 'bad_request');
+    }
+    assert.equal(o.seen.length, 0);
+});
+
+test('a gone build is a bad_request, asked once', async (t) => {
+    const seen = [];
+    const server = createServer((req, res) => {
+        seen.push(req.url);
+        res.writeHead(410, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ rc: 'BUILD_GONE' }));
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    t.after(() => server.close());
+    const client = new InternetData({
+        apiKey: 'secret-key', baseUrl: `http://127.0.0.1:${server.address().port}`,
+    });
+
+    await assert.rejects(
+        client.database.downloadUrl('small_v1', 'csvgz', { build: '20261029.aaaaaa' }),
+        (err) => err.kind === 'bad_request' && err.retryable === false && err.message === 'BUILD_GONE',
+    );
+    assert.equal(seen.length, 1);
+});
+
 test('download follows the 302 and writes the file', async (t) => {
     const o = await start();
     t.after(() => o.server.close());

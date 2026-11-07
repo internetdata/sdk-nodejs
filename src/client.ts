@@ -46,6 +46,31 @@ export interface DownloadsOptions {
     timeoutMs?: number;
 }
 
+/** Which file `downloadUrl` links to, and how long it may take. */
+export interface DownloadUrlOptions {
+    /**
+     * One build of the database, by the name a `database.updated` webhook gives
+     * it (`20261105.0t53s5`), so the file is the one whose `sha256` the webhook
+     * carries. Omit it for the build that is live. A build is kept 7 days; past
+     * that the call fails as `bad_request` with the message `BUILD_GONE`.
+     */
+    build?: string;
+    /**
+     * How long one attempt may take before it is abandoned, in milliseconds, for
+     * THIS call only. Defaults to the client's `timeoutMs`.
+     */
+    timeoutMs?: number;
+}
+
+/**
+ * Which file `download` and `downloadBytes` fetch. A transfer takes no
+ * `timeoutMs`: it runs as long as the file does.
+ */
+export interface DownloadOptions {
+    /** One build of the database, as `DownloadUrlOptions.build` says. */
+    build?: string;
+}
+
 export interface Options {
     /**
      * Your API key, carrying the `db.download` scope. Omit it to send no
@@ -197,12 +222,16 @@ export class DatabaseApi {
      * something that holds no API key. The link authorizes the START of a
      * transfer, so one already running is not interrupted when it lapses.
      */
-    async downloadUrl(id: string, format: DatabaseFormat): Promise<string> {
+    async downloadUrl(
+        id: string, format: DatabaseFormat, options: DownloadUrlOptions = {},
+    ): Promise<string> {
         assertFormat(format);
+        const build = checkBuild(options.build);
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
         return withRetry(this.retries, async () => {
-            const res = await deadline(this.timeoutMs, (signal) => downloadRedirect({
+            const res = await deadline(timeoutMs, (signal) => downloadRedirect({
                 client: this.client,
-                query: { id: id, format: format },
+                query: { id: id, format: format, ...(build === undefined ? {} : { build: build }) },
                 redirect: 'manual',
                 signal: signal,
             }));
@@ -238,8 +267,9 @@ export class DatabaseApi {
      */
     async download(
         id: string, format: DatabaseFormat, destination: DownloadDestination,
+        options: DownloadOptions = {},
     ): Promise<number> {
-        const res = await this.fetchDatabaseFile(id, format);
+        const res = await this.fetchDatabaseFile(id, format, options);
         if (res.body === null) {
             throw new InternetDataError(
                 'server_error', 'object storage answered with no body', res.status,
@@ -287,16 +317,25 @@ export class DatabaseApi {
      * parser; use `download` for anything you have not measured, and `metadata`
      * to measure it before you do.
      */
-    async downloadBytes(id: string, format: DatabaseFormat): Promise<Uint8Array> {
-        const res = await this.fetchDatabaseFile(id, format);
+    async downloadBytes(
+        id: string, format: DatabaseFormat, options: DownloadOptions = {},
+    ): Promise<Uint8Array> {
+        const res = await this.fetchDatabaseFile(id, format, options);
         return new Uint8Array(await res.arrayBuffer());
     }
 
     // Follows the 302 as a SECOND, unauthenticated request: the presigned URL
     // carries its own authorization, so forwarding the API key would hand a
     // credential to a host that has no business holding it.
-    private async fetchDatabaseFile(id: string, format: DatabaseFormat): Promise<Response> {
-        const url = await this.downloadUrl(id, format);
+    private async fetchDatabaseFile(
+        id: string, format: DatabaseFormat, options: DownloadOptions,
+    ): Promise<Response> {
+        if ((options as DownloadUrlOptions).timeoutMs !== undefined) {
+            throw new InternetDataError(
+                'bad_request', 'a transfer takes no timeoutMs: it runs as long as the file does',
+            );
+        }
+        const url = await this.downloadUrl(id, format, { build: options.build });
         return withRetry(this.retries, async () => {
             const res = await this.fetchImpl(url);
             if (!res.ok) {
@@ -311,6 +350,20 @@ export class DatabaseApi {
             return res;
         });
     }
+}
+
+/**
+ * A build's name as the API takes it, and none for an empty one, so a value
+ * read from an unset setting downloads the live build.
+ */
+function checkBuild(build: unknown): string | undefined {
+    if (build === undefined || build === '') {
+        return undefined;
+    }
+    if (typeof build !== 'string') {
+        throw new InternetDataError('bad_request', `build must be a string, got ${typeof build}`);
+    }
+    return build;
 }
 
 /**
