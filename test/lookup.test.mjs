@@ -7,6 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { test } from 'node:test';
 
 import { DEFAULT_BASE_URL, InternetData, InternetDataError, isBogon } from '../dist/index.js';
@@ -234,6 +235,60 @@ test('myEntitlement is not cached', async () => {
     await client.myEntitlement();
     await client.myEntitlement();
     assert.equal(t.state.calls, 2);
+});
+
+// The API answers an AS or a domain at the lookup's own path, in a shape the call
+// cannot read, so one sent there failed as three retried server errors.
+test('lookup refuses what is not an IP address before sending, naming the calls that take it', async () => {
+    const t = countingFetch(served(IP));
+    const client = new InternetData({ fetch: t.fetch, retries: 2 });
+    for (const target of ['AS15169', '15169', 'example.com', '', 'not an address', '1.2.3', '1.2.3.4.5',
+        '256.1.1.1', '2001:db8::g', '::ffff:1.2.3.400', 15169, null, undefined]) {
+        await assert.rejects(() => client.lookup(target), (err) => {
+            assert.ok(err instanceof InternetDataError, `${String(target)}: wrong error type`);
+            assert.equal(err.kind, 'bad_request', String(target));
+            assert.equal(err.status, undefined, String(target));
+            assert.match(err.message, /lookupAsn/, String(target));
+            assert.match(err.message, /lookupDomain/, String(target));
+            return true;
+        });
+    }
+    assert.equal(t.state.calls, 0, 'a refused target was sent');
+    for (const ip of [IP, '2606:4700:4700::1111', '::ffff:146.70.116.130']) {
+        await client.lookup(ip);
+    }
+    assert.deepEqual(t.state.urls.map((u) => u.pathname), [`/${IP}`, '/2606%3A4700%3A4700%3A%3A1111']);
+});
+
+// The spec names a production host on each lookup operation, which a generator
+// may honor over the client's own base URL. Served from a real local origin, so
+// nothing but the base URL can decide where a request goes.
+test('every lookup goes to the base URL, never the host the spec names for it', async (t) => {
+    const seen = [];
+    const server = createServer((req, res) => {
+        seen.push(`${req.method} ${req.url}`);
+        const path = req.url;
+        const reply = path === '/batch' ? { results: { [OTHER]: served(OTHER) }, errors: {} }
+            : path.startsWith('/asn/') ? ASN
+                : path.startsWith('/domain/') ? DOMAIN
+                    : path === '/api/v1/entitlement' ? ENTITLEMENT : served(IP);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(reply));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => server.close());
+    const client = new InternetData({ baseUrl: `http://127.0.0.1:${server.address().port}`, apiKey: 'k' });
+
+    assert.equal((await client.lookup(IP)).ip, IP);
+    assert.equal((await client.lookupBatch([OTHER])).get(OTHER).ip, OTHER);
+    assert.equal((await client.myIp()).ip, IP);
+    assert.equal((await client.lookupAsn(9009)).asn, 9009);
+    assert.equal((await client.lookupDomain('example.com')).domain, 'example.com');
+    assert.equal((await client.myEntitlement()).plan.key, 'max');
+    assert.deepEqual(seen, [
+        `GET /${IP}`, 'POST /batch', 'GET /myip', 'GET /asn/9009', 'GET /domain/example.com',
+        'GET /api/v1/entitlement',
+    ]);
 });
 
 // The AS number and the domain go out as given, the domain path-escaped: the API
@@ -514,7 +569,8 @@ test('a per-call timeoutMs applies to each attempt', async () => {
 // Retry-After must not be waited out after the last attempt.
 test('a lookup Retry-After is not waited out when no retry follows', async () => {
     const fetch = async () => Response.json(
-        { error: 'per-minute limit for Unlimited lookups exceeded' }, { status: 429, headers: { 'retry-after': '3' } },
+        { error: 'per-minute limit for Unlimited lookups exceeded' },
+        { status: 429, headers: { 'retry-after': '3' } },
     );
     // One retry waits the header once, then p-retry's own 1 s backoff.
     for (const [retries, least, most] of [[0, 0, 1000], [1, 3000, 6000]]) {
@@ -650,6 +706,10 @@ test('a readable answer still comes back', async () => {
         assert.deepEqual((await call(raw.client)).raw, c.body, c.name);
         assert.equal(raw.calls.length, 1, c.name);
     }
+    // A detail object requires no member: `{}` under a false flag, and whatever it carries.
+    const partial = { ...PAID, ip: IP, cdn: { provider: 'cloudflare' }, bittorrent: { verified: true } };
+    const detail = rawClient(body(JSON.stringify(partial)));
+    assert.deepEqual((await detail.client.lookup(IP)).cdn, { provider: 'cloudflare' });
     const ent = rawClient(body(JSON.stringify(ENTITLEMENT)));
     assert.deepEqual(await ent.client.myEntitlement(), ENTITLEMENT);
     const batch = rawClient(body(JSON.stringify({
@@ -666,8 +726,7 @@ const ASN_PAID = data.lookup.find((c) => c.name === 'asn-paid-answer').body;
 const DOMAIN_PAID = data.lookup.find((c) => c.name === 'domain-paid-answer').body;
 
 // A member of the wrong type, at any depth, a numeric string or a null where the
-// spec allows none included, is unreadable; so is a detail object with some of
-// its members but not all.
+// spec allows none included, is unreadable.
 test('a member of the wrong type is a retried server_error carrying its status', async () => {
     const look = (c) => c.lookup(IP);
     const lookup = { ...PAID, ip: IP };
@@ -680,7 +739,6 @@ test('a member of the wrong type is a retried server_error carrying its status',
         'a hostname of 1': [look, { ...lookup, hostname: 1 }],
         'a tor detail of "x"': [look, { ...lookup, tor: 'x' }],
         'a cdn provider of 1': [look, { ...lookup, cdn: { ...lookup.cdn, provider: 1 } }],
-        'a cdn without its provider_name': [look, { ...lookup, cdn: without(lookup.cdn, 'provider_name') }],
         'dcproxy hits of "3"': [look, {
             ...lookup, dcproxy: { provider: '', provider_name: '', first_seen: '', last_seen: '', hits: '3',
                 hits_days_pct: 1, providers_num: 1 },
@@ -704,13 +762,17 @@ test('a member of the wrong type is a retried server_error carrying its status',
         'num_ips of "1"': [asn, { ...ASN_PAID, num_ips: '1' }],
         'an AS whois value of 1': [asn, { ...ASN_PAID, whois: { ...ASN_PAID.whois, country: 1 } }],
         'a prefix size of "1024"': [asn, { ...ASN_PAID, prefixes: [{ ...ASN_PAID.prefixes[0], size: '1024' }] }],
-        'other_origins of ["1"]': [asn, { ...ASN_PAID, prefixes: [{ ...ASN_PAID.prefixes[0], other_origins: ['1'] }] }],
+        'other_origins of ["1"]': [asn, {
+            ...ASN_PAID, prefixes: [{ ...ASN_PAID.prefixes[0], other_origins: ['1'] }],
+        }],
         'is_registered as "yes"': [domain, { ...DOMAIN_PAID, is_registered: 'yes' }],
         'an mx priority of "10"': [domain, {
             ...DOMAIN_PAID, dns: { ...DOMAIN_PAID.dns, mx: [{ ...DOMAIN_PAID.dns.mx[0], priority: '10' }] },
         }],
         'dns without cname': [domain, { ...DOMAIN_PAID, dns: without(DOMAIN_PAID.dns, 'cname') }],
-        'ip_ranges ipv4 of "256"': [domain, { ...DOMAIN_PAID, ip_ranges: { ...DOMAIN_PAID.ip_ranges, ipv4: '256' } }],
+        'ip_ranges ipv4 of "256"': [domain, {
+            ...DOMAIN_PAID, ip_ranges: { ...DOMAIN_PAID.ip_ranges, ipv4: '256' },
+        }],
         'disposable providers of [1]': [domain, {
             ...DOMAIN_PAID, disposable: { confidence: 'high', providers: [1], first_seen: '', last_seen: '' },
         }],
@@ -718,7 +780,9 @@ test('a member of the wrong type is a retried server_error carrying its status',
         'a hard_limit of "5"': [ent, { ...ENTITLEMENT, usage: { ...ENTITLEMENT.usage, hard_limit: '5' } }],
         'a tier of 1': [ent, { ...ENTITLEMENT, plan: { key: 'max', tier: 1 } }],
         'allowed_cidrs of [1]': [ent, { ...ENTITLEMENT, apikey: { ...ENTITLEMENT.apikey, allowed_cidrs: [1] } }],
-        'a window_end of "tomorrow"': [ent, { ...ENTITLEMENT, usage: { ...ENTITLEMENT.usage, window_end: 'tomorrow' } }],
+        'a window_end of "tomorrow"': [ent, {
+            ...ENTITLEMENT, usage: { ...ENTITLEMENT.usage, window_end: 'tomorrow' },
+        }],
     };
     // Concurrently, since each sits out the retries' backoff.
     await Promise.all(Object.entries(cases).map(async ([name, [call, answer]]) => {
@@ -750,12 +814,8 @@ test('each checked lookup member list is every required member of its generated 
     const required = (name) => [...block(name).matchAll(/^ {4}([a-z][a-z0-9_]*): (.*)$/gm)]
         .filter((m) => !/\| null;$/.test(m[2])).map((m) => m[1]).sort();
     const lists = {
-        LookupResponse: shapes.LOOKUP_MEMBERS, ClassDetail: shapes.CLASS_DETAIL_MEMBERS,
-        ProxyDetail: shapes.PROXY_DETAIL_MEMBERS, PubproxyDetail: shapes.PUBPROXY_DETAIL_MEMBERS,
-        CarrierDetail: shapes.CARRIER_DETAIL_MEMBERS, SatelliteDetail: shapes.SATELLITE_DETAIL_MEMBERS,
-        SshDetail: shapes.SSH_DETAIL_MEMBERS, SmtpDetail: shapes.SMTP_DETAIL_MEMBERS,
-        WebDetail: shapes.WEB_DETAIL_MEMBERS, DnsResolverDetail: shapes.DNS_RESOLVER_DETAIL_MEMBERS,
-        BitTorrentDetail: shapes.BITTORRENT_DETAIL_MEMBERS, Location: shapes.LOCATION_MEMBERS,
+        LookupResponse: shapes.LOOKUP_MEMBERS, WebDetail: shapes.WEB_DETAIL_MEMBERS,
+        Location: shapes.LOCATION_MEMBERS,
         Asn: shapes.ASN_MEMBERS, Company: shapes.COMPANY_MEMBERS, AbuseContact: shapes.ABUSE_CONTACT_MEMBERS,
         Whois: shapes.WHOIS_MEMBERS, Rwhois: shapes.RWHOIS_MEMBERS, HostedDomains: shapes.HOSTED_DOMAINS_MEMBERS,
         AsnLookupResponse: shapes.ASN_LOOKUP_MEMBERS, AsnPrefix: shapes.ASN_PREFIX_MEMBERS,
@@ -763,13 +823,18 @@ test('each checked lookup member list is every required member of its generated 
         DnsAddressRecord: shapes.DNS_ADDRESS_RECORD_MEMBERS, DnsMxRecord: shapes.DNS_MX_RECORD_MEMBERS,
         DnsNsRecord: shapes.DNS_NS_RECORD_MEMBERS, DnsCnameRecord: shapes.DNS_CNAME_RECORD_MEMBERS,
         DomainIpRanges: shapes.DOMAIN_IP_RANGES_MEMBERS, DomainIpRange: shapes.DOMAIN_IP_RANGE_MEMBERS,
-        DisposableDetail: shapes.DISPOSABLE_DETAIL_MEMBERS, BatchLookupResponse: shapes.BATCH_MEMBERS,
+        BatchLookupResponse: shapes.BATCH_MEMBERS,
         BatchLookupError: shapes.BATCH_ERROR_MEMBERS, Entitlement: shapes.ENTITLEMENT_MEMBERS,
         EntitlementApikey: shapes.ENTITLEMENT_APIKEY_MEMBERS, EntitlementPlan: shapes.ENTITLEMENT_PLAN_MEMBERS,
         EntitlementUsage: shapes.ENTITLEMENT_USAGE_MEMBERS,
     };
     for (const [name, list] of Object.entries(lists)) {
         assert.deepEqual([...list].sort(), required(name), name);
+    }
+    // A detail object requires nothing, which is what lets `{}` stand under a false flag.
+    for (const name of ['ClassDetail', 'ProxyDetail', 'PubproxyDetail', 'CarrierDetail', 'SatelliteDetail',
+        'SshDetail', 'SmtpDetail', 'DnsResolverDetail', 'BitTorrentDetail', 'DisposableDetail']) {
+        assert.deepEqual(required(name), [], name);
     }
 });
 
@@ -781,7 +846,8 @@ test('each lookup type table covers every member of its generated type', () => {
         LookupResponse: shapes.LOOKUP_TYPES, ClassDetail: shapes.CLASS_DETAIL_TYPES,
         ProxyDetail: shapes.PROXY_DETAIL_TYPES, PubproxyDetail: shapes.PUBPROXY_DETAIL_TYPES,
         CarrierDetail: shapes.CARRIER_DETAIL_TYPES, SatelliteDetail: shapes.SATELLITE_DETAIL_TYPES,
-        SshDetail: shapes.SSH_DETAIL_TYPES, SmtpDetail: shapes.SMTP_DETAIL_TYPES, WebDetail: shapes.WEB_DETAIL_TYPES,
+        SshDetail: shapes.SSH_DETAIL_TYPES, SmtpDetail: shapes.SMTP_DETAIL_TYPES,
+        WebDetail: shapes.WEB_DETAIL_TYPES,
         DnsResolverDetail: shapes.DNS_RESOLVER_DETAIL_TYPES, BitTorrentDetail: shapes.BITTORRENT_DETAIL_TYPES,
         Location: shapes.LOCATION_TYPES, Asn: shapes.ASN_TYPES, Company: shapes.COMPANY_TYPES,
         AbuseContact: shapes.ABUSE_CONTACT_TYPES, Whois: shapes.WHOIS_TYPES, Rwhois: shapes.RWHOIS_TYPES,

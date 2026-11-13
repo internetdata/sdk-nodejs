@@ -10,31 +10,9 @@ export const LOOKUP_MEMBERS = [
     'is_web', 'is_dns_resolver', 'is_bittorrent', 'tor', 'relay', 'location', 'asn', 'company', 'hostname',
     'abuse',
 ] as const;
-export const CLASS_DETAIL_MEMBERS = ['provider', 'provider_name', 'confidence', 'last_seen'] as const;
-export const PROXY_DETAIL_MEMBERS = [
-    'provider', 'provider_name', 'first_seen', 'last_seen', 'hits', 'hits_days_pct', 'providers_num',
-] as const;
-export const PUBPROXY_DETAIL_MEMBERS = [
-    'entry', 'exit', 'protocols', 'num_ports', 'num_proxies', 'last_seen', 'last_usable',
-] as const;
-export const CARRIER_DETAIL_MEMBERS = ['name', 'mcc', 'mnc', 'country', 'confidence'] as const;
-export const SATELLITE_DETAIL_MEMBERS = [
-    'provider', 'provider_name', 'orbit', 'segment', 'country', 'asn', 'confidence',
-] as const;
-export const SSH_DETAIL_MEMBERS = [
-    'port', 'banner', 'host_key_fp', 'session_ok', 'first_seen', 'last_seen',
-] as const;
-export const SMTP_DETAIL_MEMBERS = ['port', 'banner', 'session_ok', 'first_seen', 'last_seen'] as const;
 export const WEB_DETAIL_MEMBERS = [
     'port', 'tls_ok', 'session_ok', 'status_code', 'server', 'location', 'title', 'cert_subject_cn',
     'cert_subject_o', 'cert_issuer_dn', 'cert_browser_trusted', 'tls_version', 'first_seen', 'last_seen',
-] as const;
-export const DNS_RESOLVER_DETAIL_MEMBERS = [
-    'port', 'recursion_available', 'rcode', 'answer_correct', 'first_seen', 'last_seen',
-] as const;
-export const BITTORRENT_DETAIL_MEMBERS = [
-    'verified', 'id_matches_ip', 'first_seen', 'last_seen', 'last_reachable', 'days_seen', 'num_ports',
-    'peak_num_ports', 'indexer', 'clients',
 ] as const;
 export const LOCATION_MEMBERS = [
     'continent', 'continent_name', 'country', 'country_name', 'timezone', 'currency_code', 'currency_name',
@@ -62,7 +40,6 @@ export const DNS_NS_RECORD_MEMBERS = ['host', 'last_seen'] as const;
 export const DNS_CNAME_RECORD_MEMBERS = ['target', 'last_seen'] as const;
 export const DOMAIN_IP_RANGES_MEMBERS = ['domain', 'redirects_to', 'total', 'ipv4', 'ranges'] as const;
 export const DOMAIN_IP_RANGE_MEMBERS = ['range', 'name', 'country'] as const;
-export const DISPOSABLE_DETAIL_MEMBERS = ['confidence', 'providers', 'first_seen', 'last_seen'] as const;
 export const BATCH_MEMBERS = ['results', 'errors'] as const;
 export const BATCH_ERROR_MEMBERS = ['status', 'error'] as const;
 export const ENTITLEMENT_MEMBERS = ['org_id', 'apikey', 'plan', 'usage'] as const;
@@ -300,34 +277,17 @@ function optional(value: unknown, valid: (value: unknown) => boolean): boolean {
     return value === undefined || value === null || valid(value);
 }
 
-/**
- * A detail object: `{}` under a false flag, or every member the spec requires,
- * each of its type. Nothing between: a populated one always carries every key.
- */
-function detail(value: unknown, required: readonly string[], types: Record<string, Kind>): boolean {
-    return isObject(value) && (Object.keys(value).length === 0 || typed(value, required, types));
-}
-
 function lists(value: unknown, member: string, valid: (entry: unknown) => boolean): boolean {
     return optional((value as Record<string, unknown>)[member], (list) => every(list, valid));
 }
 
-const DETAILS: [string, readonly string[], Record<string, Kind>][] = [
-    ['vpn', CLASS_DETAIL_MEMBERS, CLASS_DETAIL_TYPES],
-    ['tor', CLASS_DETAIL_MEMBERS, CLASS_DETAIL_TYPES],
-    ['relay', CLASS_DETAIL_MEMBERS, CLASS_DETAIL_TYPES],
-    ['resproxy', PROXY_DETAIL_MEMBERS, PROXY_DETAIL_TYPES],
-    ['dcproxy', PROXY_DETAIL_MEMBERS, PROXY_DETAIL_TYPES],
-    ['mobproxy', PROXY_DETAIL_MEMBERS, PROXY_DETAIL_TYPES],
-    ['pubproxy', PUBPROXY_DETAIL_MEMBERS, PUBPROXY_DETAIL_TYPES],
-    ['hosting', CLASS_DETAIL_MEMBERS, CLASS_DETAIL_TYPES],
-    ['cdn', CLASS_DETAIL_MEMBERS, CLASS_DETAIL_TYPES],
-    ['carrier', CARRIER_DETAIL_MEMBERS, CARRIER_DETAIL_TYPES],
-    ['satellite', SATELLITE_DETAIL_MEMBERS, SATELLITE_DETAIL_TYPES],
-    ['ssh', SSH_DETAIL_MEMBERS, SSH_DETAIL_TYPES],
-    ['smtp', SMTP_DETAIL_MEMBERS, SMTP_DETAIL_TYPES],
-    ['dns_resolver', DNS_RESOLVER_DETAIL_MEMBERS, DNS_RESOLVER_DETAIL_TYPES],
-    ['bittorrent', BITTORRENT_DETAIL_MEMBERS, BITTORRENT_DETAIL_TYPES],
+const DETAILS: [string, Record<string, Kind>][] = [
+    ['vpn', CLASS_DETAIL_TYPES], ['tor', CLASS_DETAIL_TYPES], ['relay', CLASS_DETAIL_TYPES],
+    ['resproxy', PROXY_DETAIL_TYPES], ['dcproxy', PROXY_DETAIL_TYPES], ['mobproxy', PROXY_DETAIL_TYPES],
+    ['pubproxy', PUBPROXY_DETAIL_TYPES], ['hosting', CLASS_DETAIL_TYPES], ['cdn', CLASS_DETAIL_TYPES],
+    ['carrier', CARRIER_DETAIL_TYPES], ['satellite', SATELLITE_DETAIL_TYPES], ['ssh', SSH_DETAIL_TYPES],
+    ['smtp', SMTP_DETAIL_TYPES], ['dns_resolver', DNS_RESOLVER_DETAIL_TYPES],
+    ['bittorrent', BITTORRENT_DETAIL_TYPES],
 ];
 
 // Required where the lookup itself requires them, and optional otherwise.
@@ -343,7 +303,7 @@ const SHARED: [string, readonly string[], Record<string, Kind>][] = [
 
 export function isLookup(data: unknown): boolean {
     return typed(data, LOOKUP_MEMBERS, LOOKUP_TYPES)
-        && DETAILS.every(([member, required, types]) => optional(data[member], (d) => detail(d, required, types)))
+        && DETAILS.every(([member, types]) => optional(data[member], (detail) => typed(detail, [], types)))
         && optional(data['pubproxy'], (pubproxy) => lists(pubproxy, 'protocols', isString))
         && optional(data['bittorrent'], (bittorrent) => lists(bittorrent, 'clients', isString))
         && optional(data['web'], (web) => every(web, (row) => typed(row, WEB_DETAIL_MEMBERS, WEB_DETAIL_TYPES)))
@@ -367,7 +327,7 @@ export function isDomainLookup(data: unknown): boolean {
             && every(dns['cname'], (r) => typed(r, DNS_CNAME_RECORD_MEMBERS, DNS_CNAME_RECORD_TYPES)))
         && optional(data['ip_ranges'], (ranges) => typed(ranges, DOMAIN_IP_RANGES_MEMBERS, DOMAIN_IP_RANGES_TYPES)
             && every(ranges['ranges'], (r) => typed(r, DOMAIN_IP_RANGE_MEMBERS, DOMAIN_IP_RANGE_TYPES)))
-        && optional(data['disposable'], (d) => detail(d, DISPOSABLE_DETAIL_MEMBERS, DISPOSABLE_DETAIL_TYPES)
+        && optional(data['disposable'], (d) => typed(d, [], DISPOSABLE_DETAIL_TYPES)
             && lists(d, 'providers', isString));
 }
 

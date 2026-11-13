@@ -1,8 +1,5 @@
 import { BOGON_V4, BOGON_V6 } from './bogons.gen.js';
-import type {
-    BitTorrentDetail, CarrierDetail, ClassDetail, DnsResolverDetail, LookupResponse, ProxyDetail, PubproxyDetail,
-    SatelliteDetail, SmtpDetail, SshDetail,
-} from './generated/types.gen.js';
+import type { LookupResponse } from './generated/types.gen.js';
 import { toResult, type Result } from './types.js';
 
 /**
@@ -22,6 +19,11 @@ export function isBogon(ip: string): boolean {
     }
     const a = v4ToInt(addr);
     return a === null ? false : v4().some((r) => (a & r.mask) >>> 0 === r.net);
+}
+
+/** Whether a string is an IPv4 or an IPv6 address, as `isBogon` reads one. */
+export function isAddress(ip: string): boolean {
+    return ip.includes(':') ? v6ToInt(ip) !== null : v4ToInt(ip) !== null;
 }
 
 /**
@@ -77,22 +79,22 @@ function bogonAnswer(ip: string): LookupResponse {
         is_web: false,
         is_dns_resolver: false,
         is_bittorrent: false,
-        vpn: {} as ClassDetail,
-        tor: {} as ClassDetail,
-        relay: {} as ClassDetail,
-        resproxy: {} as ProxyDetail,
-        dcproxy: {} as ProxyDetail,
-        mobproxy: {} as ProxyDetail,
-        pubproxy: {} as PubproxyDetail,
-        hosting: {} as ClassDetail,
-        cdn: {} as ClassDetail,
-        carrier: {} as CarrierDetail,
-        satellite: {} as SatelliteDetail,
-        ssh: {} as SshDetail,
-        smtp: {} as SmtpDetail,
+        vpn: {},
+        tor: {},
+        relay: {},
+        resproxy: {},
+        dcproxy: {},
+        mobproxy: {},
+        pubproxy: {},
+        hosting: {},
+        cdn: {},
+        carrier: {},
+        satellite: {},
+        ssh: {},
+        smtp: {},
         web: [],
-        dns_resolver: {} as DnsResolverDetail,
-        bittorrent: {} as BitTorrentDetail,
+        dns_resolver: {},
+        bittorrent: {},
         location: {
             continent: '',
             continent_name: '',

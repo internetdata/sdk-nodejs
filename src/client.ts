@@ -15,7 +15,7 @@ import type {
     DomainLookupResponse, Entitlement, ListDatabasesResponses, ListDownloadsResponses, LookupResponse,
 } from './generated/types.gen.js';
 
-import { bogonResult, isBogon, unmapped } from './bogon.js';
+import { bogonResult, isAddress, isBogon, unmapped } from './bogon.js';
 import { errorFromEntry, errorFromResponse, InternetDataError } from './errors.js';
 import { OauthApi } from './oauth.js';
 import {
@@ -225,12 +225,20 @@ export class InternetData {
      * that request rather than sending their own, and take its answer, sent
      * under the options of the call that led it. An IPv4-mapped address
      * (`::ffff:8.8.8.8`) is the IPv4 address it carries: judged, sent and cached
-     * as that, so the answer names `8.8.8.8`.
+     * as that, so the answer names `8.8.8.8`. Anything that is not an IP address
+     * is refused as `bad_request` before it is sent: an AS is `lookupAsn`'s, and
+     * a domain `lookupDomain`'s.
      */
     async lookup(ip: string, options: LookupOptions = {}): Promise<Result> {
         // First, or a bogon and a cached address would answer any value.
         checkTimeout(options.timeoutMs);
         checkRetries(options.retries);
+        // The API answers an AS or a domain at this path too, in a shape this
+        // call cannot read, so one sent here failed as three retried server errors.
+        if (typeof ip !== 'string' || !isAddress(unmapped(ip))) {
+            throw new InternetDataError('bad_request', `${JSON.stringify(ip)} is not an IP address: `
+                + 'look an AS up with lookupAsn, and a domain with lookupDomain');
+        }
         const addr = unmapped(ip);
         if (isBogon(addr)) {
             return bogonResult(addr);
