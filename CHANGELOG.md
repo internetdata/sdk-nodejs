@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.10.0 - 2026-11-13
+
+### Features
+
+- Add the framework middleware core ([`415cdc4`](https://github.com/internetdata/sdk-nodejs/commit/415cdc43e45a93dabb5fedf3cdde9c912933a15e))
+- Build for an Edge runtime: import no Node.js builtin ([`da5ed9a`](https://github.com/internetdata/sdk-nodejs/commit/da5ed9af6beb4b7724c5eeff052b8e3199f8db81))
+
 ## 2.9.1 - 2026-11-13
 
 ### Fixes

@@ -1,6 +1,6 @@
 {
     "name": "@internetdata/internetdata",
-    "version": "2.9.1",
+    "version": "2.10.0",
     "description": "Official Node.js client library for the InternetData API. Look up IP addresses, ASes and domains, and download licensed IP database files.",
     "type": "module",
     "packageManager": "pnpm@12.12.1",
