@@ -236,8 +236,8 @@ export class InternetData {
         // The API answers an AS or a domain at this path too, in a shape this
         // call cannot read, so one sent here failed as three retried server errors.
         if (typeof ip !== 'string' || !isAddress(unmapped(ip))) {
-            throw new InternetDataError('bad_request', `${JSON.stringify(ip)} is not an IP address: `
-                + 'look an AS up with lookupAsn, and a domain with lookupDomain');
+            throw new InternetDataError('bad_request', `'${String(ip)}' is not an IP address: `
+                + 'look up an AS with lookupAsn, and a domain with lookupDomain');
         }
         const addr = unmapped(ip);
         if (isBogon(addr)) {

@@ -248,8 +248,8 @@ test('lookup refuses what is not an IP address before sending, naming the calls 
             assert.ok(err instanceof InternetDataError, `${String(target)}: wrong error type`);
             assert.equal(err.kind, 'bad_request', String(target));
             assert.equal(err.status, undefined, String(target));
-            assert.match(err.message, /lookupAsn/, String(target));
-            assert.match(err.message, /lookupDomain/, String(target));
+            assert.equal(err.message, `'${String(target)}' is not an IP address: `
+                + 'look up an AS with lookupAsn, and a domain with lookupDomain', String(target));
             return true;
         });
     }
