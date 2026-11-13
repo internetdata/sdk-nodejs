@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.9.1 - 2026-11-13
+
+### Fixes
+
+- Refuse a lookup of what is not an address, and re-pin the spec ([`f7f7d45`](https://github.com/internetdata/sdk-nodejs/commit/f7f7d4559c0398bb0465c2f03f9b0f8c262a594e))
+
 ## 2.9.0 - 2026-11-13
 
 ### Features
