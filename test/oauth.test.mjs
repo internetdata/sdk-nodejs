@@ -14,6 +14,8 @@ import {
 const corpus = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8')).oauth;
 
 const BASE_URL = 'https://api.example.test';
+// Where every oauth call goes for that base URL: its apex, `api.` dropped.
+const AUTH_SERVER = 'https://example.test';
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 
 // Past this many requests, waits or clock reads, a loop under test fails its
@@ -85,7 +87,7 @@ test('each operation requests its endpoint with exactly its form fields', async 
 
         assert.equal(stub.requests.length, 1);
         assertEndpoint(stub.requests[0], corpus.endpoints.metadata);
-        assert.equal(stub.requests[0].url, `${BASE_URL}${corpus.endpoints.metadata.path}`);
+        assert.equal(stub.requests[0].url, `${AUTH_SERVER}${corpus.endpoints.metadata.path}`);
     });
     for (const c of [...corpus.forms.cases, ...corpus.deferred.forms]) {
         await t.test(c.name, async () => {
@@ -233,7 +235,7 @@ test('register posts exactly its JSON body, and refuses an empty URI before send
             assert.equal(stub.requests.length, 1);
             const req = stub.requests[0];
             assertEndpoint(req, register.endpoint);
-            assert.equal(req.url, `${BASE_URL}${register.endpoint.path}`);
+            assert.equal(req.url, `${AUTH_SERVER}${register.endpoint.path}`);
             const type = req.headers.get('content-type') ?? '';
             assert.ok(type.startsWith(register.contentType), `sent as ${type}`);
             assert.deepEqual(JSON.parse(req.body), c.body);
@@ -315,7 +317,7 @@ test('an authorization URL is built exactly as the corpus spells it, with no req
         assert.equal(
             oauth.authorizationUrl(required.clientId, required.redirectUri, required.codeChallenge,
                 { scope: '', state: '', resource: '' }),
-            required.expect.replace(required.baseUrl, BASE_URL),
+            required.expect.replace(required.baseUrl, AUTH_SERVER),
         );
         assert.throws(() => oauth.authorizationUrl('', required.redirectUri, required.codeChallenge),
             (err) => err instanceof InternetDataError && err.kind === 'bad_request');

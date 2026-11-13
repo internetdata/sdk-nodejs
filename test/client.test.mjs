@@ -4,11 +4,21 @@
 // Runs against dist/, which is what actually ships.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { DEFAULT_BASE_URL, InternetData, InternetDataError } from '../dist/index.js';
 
 const KEY = 'test-key';
+
+const data = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8'));
+const answer = (name) => data.lookup.find((c) => c.name === name).body;
+// A served answer for any address: Unlimited's, as the corpus spells it.
+const served = (ip) => ({ ...answer('unlimited-answer'), ip: ip });
+const ENTITLEMENT = {
+    org_id: 'o', apikey: { id: 'k', expires: null, allowed_cidrs: [] }, plan: { key: 'max', tier: 'max' },
+    usage: { requests: 1, quota: 10, hard_limit: null, window_start: '2026-10-01T00:00:00Z', window_end: '2026-11-01T00:00:00Z' },
+};
 
 const CHECKSUMS = {
     md5: 'd41d8cd98f00b204e9800998ecf8427e',
@@ -301,8 +311,19 @@ const STALLS = {
 };
 
 // Every call that takes per-call options, each surfacing its failure as a
-// rejection.
+// rejection. A batch reports a failed chunk as every address's value instead of
+// throwing, so that one rethrows what it was given.
 const PER_CALL = {
+    'lookup': (c, o) => c.lookup('146.70.116.130', o),
+    'myIp': (c, o) => c.myIp(o),
+    'myEntitlement': (c, o) => c.myEntitlement(o),
+    'lookupAsn': (c, o) => c.lookupAsn(9009, o),
+    'lookupDomain': (c, o) => c.lookupDomain('example.com', o),
+    'lookupBatch': async (c, o) => {
+        const answers = [...(await c.lookupBatch(['146.70.116.130', '9.9.9.9'], o)).values()];
+        assert.ok(answers.every((a) => a instanceof InternetDataError), 'the chunk should fail as a whole');
+        throw answers[0];
+    },
     'database.downloads': (c, o) => c.database.downloads({ limit: 5, ...o }),
     'oauth.metadata': (c, o) => c.oauth.metadata(o),
     'oauth.deviceAuthorization': (c, o) => c.oauth.deviceAuthorization('your-client-id', o),
@@ -328,7 +349,7 @@ const PER_CALL = {
 test('a per-call timeoutMs bounds every call below the client default', async () => {
     for (const [stallName, stall] of Object.entries(STALLS)) {
         for (const [call, invoke] of Object.entries(PER_CALL)) {
-            const client = new InternetData({ retries: 0, timeoutMs: 10_000, fetch: stall });
+            const client = new InternetData({ retries: 0, timeoutMs: 10_000, cache: false, fetch: stall });
             const label = `${call}, ${stallName}`;
             const started = Date.now();
             await assert.rejects(() => invoke(client, { timeoutMs: 80 }), (err) => {
@@ -427,9 +448,20 @@ function pathRecordingFetch() {
         if (path.endsWith('/download')) {
             return new Response(null, { status: 302, headers: { location: 'https://s3.invalid/f' } });
         }
-        const body = path.endsWith('oauth-authorization-server')
-            ? { issuer: 'x', authorization_endpoint: 'x', token_endpoint: 'x' }
-            : { databases: [] };
+        let body = { databases: [] };
+        if (path.endsWith('oauth-authorization-server')) {
+            body = { issuer: 'x', authorization_endpoint: 'x', token_endpoint: 'x' };
+        } else if (path.endsWith('/batch')) {
+            body = { results: { '9.9.9.9': served('9.9.9.9') }, errors: {} };
+        } else if (path.startsWith('/asn/')) {
+            body = answer('asn-unlimited-answer');
+        } else if (path.startsWith('/domain/')) {
+            body = answer('domain-unlimited-answer');
+        } else if (path.endsWith('/entitlement')) {
+            body = ENTITLEMENT;
+        } else if (!path.startsWith('/api/') && !path.startsWith('/oauth/')) {
+            body = served('8.8.8.8');
+        }
         return new Response(JSON.stringify(body), {
             status: 200, headers: { 'content-type': 'application/json' },
         });
@@ -447,11 +479,18 @@ test('every trailing slash on the base URL is dropped', async (t) => {
             const client = new InternetData({
                 baseUrl: `https://api.example.test${suffix}`, apiKey: KEY, fetch: stub.fetch, retries: 0,
             });
+            await client.lookup('8.8.8.8');
+            await client.lookupBatch(['9.9.9.9']);
+            await client.myIp();
+            await client.lookupAsn(9009);
+            await client.lookupDomain('example.com');
+            await client.myEntitlement();
             await client.database.list();
             await client.database.downloadUrl('small_v1', 'csvgz');
             await client.oauth.metadata();
             await client.oauth.revoke('internetdata-cli', 'mo_rt_x');
             assert.deepEqual(stub.paths, [
+                '/8.8.8.8', '/batch', '/myip', '/asn/9009', '/domain/example.com', '/api/v1/entitlement',
                 '/api/v2/database/list', '/api/v2/database/download',
                 '/.well-known/oauth-authorization-server', '/oauth/revoke',
             ]);
@@ -477,7 +516,16 @@ test('a timeout no attempt can meet is refused on the client', () => {
 test('a timeout no attempt can meet is refused per call, before any request', async () => {
     const stub = pathRecordingFetch();
     const client = new InternetData({ apiKey: KEY, fetch: stub.fetch, retries: 0 });
+    await client.lookup('8.8.8.8');
+    const asked = stub.paths.length;
     const calls = {
+        'a bogon': (o) => client.lookup('10.0.0.1', o),
+        'a cached address': (o) => client.lookup('8.8.8.8', o),
+        'a batch': (o) => client.lookupBatch(['10.0.0.1', '8.8.8.8'], o),
+        'myIp': (o) => client.myIp(o),
+        'myEntitlement': (o) => client.myEntitlement(o),
+        'lookupAsn': (o) => client.lookupAsn(9009, o),
+        'lookupDomain': (o) => client.lookupDomain('example.com', o),
         'downloads': (o) => client.database.downloads(o),
         'metadata': (o) => client.oauth.metadata(o),
         'deviceAuthorization': (o) => client.oauth.deviceAuthorization('internetdata-cli', o),
@@ -498,7 +546,7 @@ test('a timeout no attempt can meet is refused per call, before any request', as
                 (err) => err instanceof InternetDataError && err.kind === 'bad_request', `${name}: ${timeoutMs}`);
         }
     }
-    assert.equal(stub.paths.length, 0, 'a refused timeout sent a request');
+    assert.equal(stub.paths.length, asked, 'a refused timeout sent a request');
 });
 
 // setTimeout runs a delay past 2^31 - 1 ms as 1 ms and prints a

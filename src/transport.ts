@@ -61,6 +61,42 @@ export function checkTimeout(timeoutMs: number | undefined): number | undefined 
 }
 
 /**
+ * A retry count p-retry can run, refused where it is set, on the client or the
+ * call: through 2.7.3 a negative, NaN or non-number failed every call with
+ * p-retry's own TypeError as a `network` error, and a fraction ended a failing
+ * call as one too (measured 2026-10-23). `Infinity` is p-retry's own unbounded
+ * count.
+ */
+export function checkRetries(retries: number | null | undefined): number | undefined {
+    // Unset, as `??` has always read a null.
+    if (retries === undefined || retries === null) {
+        return undefined;
+    }
+    if (!(typeof retries === 'number' && retries >= 0 && (Number.isInteger(retries) || retries === Infinity))) {
+        throw new InternetDataError('bad_request', `retries must be a whole number from 0, got ${String(retries)}`);
+    }
+    return retries;
+}
+
+/**
+ * How many batch requests may be in flight, refused where it is set, on the
+ * client or the call, where p-limit would throw its own bare TypeError.
+ * `Infinity` is p-limit's own unbounded count, and `null` reads as unset.
+ */
+export function checkConcurrency(concurrency: number | null | undefined): number | undefined {
+    if (concurrency === undefined || concurrency === null) {
+        return undefined;
+    }
+    if (!(typeof concurrency === 'number' && concurrency >= 1
+        && (Number.isInteger(concurrency) || concurrency === Infinity))) {
+        throw new InternetDataError(
+            'bad_request', `concurrency must be a whole number of at least 1, got ${String(concurrency)}`,
+        );
+    }
+    return concurrency;
+}
+
+/**
  * Bound one attempt, and report an expiry as our own error rather than the
  * runtime's `TimeoutError`, whose message says nothing about which call gave up.
  *

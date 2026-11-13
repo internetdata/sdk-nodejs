@@ -168,13 +168,22 @@ test('a date or date-time that is not RFC 3339 is a retried server_error', async
         dataset_id: 'bogon_asn_v1', format: 'csvgz', outcome: 'ok', sample: false, open: false, bytes: 760,
         http_status: 302, apikey_id: null, client_ip: null, user_agent: null, created: '2026-09-04T10:00:00Z',
     };
+    const entitlement = {
+        org_id: 'o', apikey: { id: 'a', expires: null, allowed_cidrs: [] }, plan: { key: 'max', tier: 'max' },
+        usage: { requests: 1, quota: 2, hard_limit: null, window_start: '2026-10-01T00:00:00Z', window_end: '2026-11-01T00:00:00Z' },
+    };
     const list = (c) => c.database.list();
+    const ent = (c) => c.myEntitlement();
     const cases = [];
     for (const value of dateTimes) {
         for (const member of ['starts', 'expires', 'renews_at', 'notice_due_at']) {
             cases.push([`${member} ${value}`, list, { databases: [{ ...database, [member]: value }] }]);
         }
         cases.push([`created ${value}`, (c) => c.database.downloads(), { downloads: [{ ...download, created: value }] }]);
+        for (const member of ['window_start', 'window_end']) {
+            cases.push([`${member} ${value}`, ent, { ...entitlement, usage: { ...entitlement.usage, [member]: value } }]);
+        }
+        cases.push([`apikey.expires ${value}`, ent, { ...entitlement, apikey: { ...entitlement.apikey, expires: value } }]);
     }
     for (const value of dates) {
         cases.push([`updated ${value}`, (c) => c.database.metadata('bogon_asn_v1'), { ...metadata, updated: value }]);
@@ -224,7 +233,22 @@ test('each date kind is the format the spec names', async () => {
     const tables = {
         Database: shapes.DATABASE_TYPES, DatabaseVersion: shapes.DATABASE_VERSION_TYPES,
         DatabaseMetadata: shapes.DATABASE_METADATA_TYPES, DatabaseMetadataColumn: shapes.COLUMN_TYPES,
-        Download: shapes.DOWNLOAD_TYPES,
+        Download: shapes.DOWNLOAD_TYPES, LookupResponse: shapes.LOOKUP_TYPES, ClassDetail: shapes.CLASS_DETAIL_TYPES,
+        ProxyDetail: shapes.PROXY_DETAIL_TYPES, PubproxyDetail: shapes.PUBPROXY_DETAIL_TYPES,
+        CarrierDetail: shapes.CARRIER_DETAIL_TYPES, SatelliteDetail: shapes.SATELLITE_DETAIL_TYPES,
+        SshDetail: shapes.SSH_DETAIL_TYPES, SmtpDetail: shapes.SMTP_DETAIL_TYPES, WebDetail: shapes.WEB_DETAIL_TYPES,
+        DnsResolverDetail: shapes.DNS_RESOLVER_DETAIL_TYPES, BitTorrentDetail: shapes.BITTORRENT_DETAIL_TYPES,
+        Location: shapes.LOCATION_TYPES, Asn: shapes.ASN_TYPES, Company: shapes.COMPANY_TYPES,
+        AbuseContact: shapes.ABUSE_CONTACT_TYPES, Whois: shapes.WHOIS_TYPES, Rwhois: shapes.RWHOIS_TYPES,
+        HostedDomains: shapes.HOSTED_DOMAINS_TYPES, AsnLookupResponse: shapes.ASN_LOOKUP_TYPES,
+        AsnPrefix: shapes.ASN_PREFIX_TYPES, DomainLookupResponse: shapes.DOMAIN_LOOKUP_TYPES,
+        DomainDns: shapes.DOMAIN_DNS_TYPES, DnsAddressRecord: shapes.DNS_ADDRESS_RECORD_TYPES,
+        DnsMxRecord: shapes.DNS_MX_RECORD_TYPES, DnsNsRecord: shapes.DNS_NS_RECORD_TYPES,
+        DnsCnameRecord: shapes.DNS_CNAME_RECORD_TYPES, DomainIpRanges: shapes.DOMAIN_IP_RANGES_TYPES,
+        DomainIpRange: shapes.DOMAIN_IP_RANGE_TYPES, DisposableDetail: shapes.DISPOSABLE_DETAIL_TYPES,
+        BatchLookupError: shapes.BATCH_ERROR_TYPES, Entitlement: shapes.ENTITLEMENT_TYPES,
+        EntitlementApikey: shapes.ENTITLEMENT_APIKEY_TYPES, EntitlementPlan: shapes.ENTITLEMENT_PLAN_TYPES,
+        EntitlementUsage: shapes.ENTITLEMENT_USAGE_TYPES,
     };
     const kinds = new Map();
     for (const [name, table] of Object.entries(tables)) {
@@ -241,7 +265,7 @@ test('each date kind is the format the spec names', async () => {
     }
     const covered = [...formats.keys()].filter((at) => tables[at.split('.')[0]] !== undefined);
     assert.equal(kinds.size, covered.length);
-    assert.equal(kinds.size, 6);
+    assert.equal(kinds.size, 9);
 });
 
 test('a readable answer still comes back', async () => {

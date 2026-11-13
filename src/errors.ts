@@ -131,7 +131,18 @@ export function errorFromResponse(
 }
 
 /**
- * The `rc` an error envelope carries.
+ * A per-entry failure inside a successful batch: the status the single lookup
+ * would have answered, and its message, with no headers at all - so a 429 here
+ * is a spent allowance, which is the only kind the API puts in an entry.
+ */
+export function errorFromEntry(entry: { status: number, error: string }): InternetDataError {
+    return errorFromResponse(entry.status, NO_HEADERS, entry.error);
+}
+
+/**
+ * The message an error envelope carries. The two APIs behind this host answer
+ * with different envelopes: the lookups use `error`, the database endpoints
+ * `rc`. Both are read here so a caller never has to know which one they hit.
  *
  * Deliberately not an enum, in the spec or here: a code added later must stay
  * readable to a client generated today, and the string IS the message a caller
@@ -141,8 +152,14 @@ export function messageFromBody(body: unknown): string | undefined {
     if (typeof body !== 'object' || body === null) {
         return undefined;
     }
-    const rc = (body as Record<string, unknown>)['rc'];
-    return typeof rc === 'string' ? rc : undefined;
+    const b = body as Record<string, unknown>;
+    if (typeof b.error === 'string') {
+        return b.error;
+    }
+    if (typeof b.rc === 'string') {
+        return b.rc;
+    }
+    return undefined;
 }
 
 function parseRetryAfter(value: string | null): number | undefined {

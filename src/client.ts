@@ -1,3 +1,6 @@
+import { LRUCache } from 'lru-cache';
+import pLimit from 'p-limit';
+
 import type { Writable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -5,22 +8,26 @@ import { createClient, createConfig } from './generated/client/index.js';
 import type { Client } from './generated/client/index.js';
 import {
     databaseChecksumV2, databaseMetadataV2, downloadDatabaseV2 as downloadRedirect,
-    listDatabases, listDownloads,
+    listDatabases, listDownloads, lookupAsn, lookupBatch, lookupDomain, lookupIp, lookupMyIp, myEntitlement,
 } from './generated/sdk.gen.js';
 import type {
-    DatabaseChecksumV2Responses, DatabaseMetadataV2Responses, ListDatabasesResponses,
-    ListDownloadsResponses,
+    AsnLookupResponse, BatchLookupResponse, DatabaseChecksumV2Responses, DatabaseMetadataV2Responses,
+    DomainLookupResponse, Entitlement, ListDatabasesResponses, ListDownloadsResponses, LookupResponse,
 } from './generated/types.gen.js';
 
-import { errorFromResponse, InternetDataError } from './errors.js';
+import { bogonResult, isBogon, unmapped } from './bogon.js';
+import { errorFromEntry, errorFromResponse, InternetDataError } from './errors.js';
 import { OauthApi } from './oauth.js';
 import {
-    isChecksumsResponse, isDatabaseList, isDatabaseMetadata, isDownloadList,
+    isAsnLookup, isBatch, isBatchError, isChecksumsResponse, isDatabaseList, isDatabaseMetadata,
+    isDomainLookup, isDownloadList, isEntitlement, isLookup,
 } from './shapes.js';
-import { checkTimeout, deadline, readable, unwrap, withRetry } from './transport.js';
-import { DATABASE_FORMATS } from './types.js';
+import {
+    asError, checkConcurrency, checkRetries, checkTimeout, deadline, readable, unwrap, withRetry,
+} from './transport.js';
+import { DATABASE_FORMATS, toAsnResult, toDomainResult, toResult } from './types.js';
 import type {
-    Database, DatabaseFormat, DatabaseMetadata, DbChecksums, Download,
+    AsnResult, Database, DatabaseFormat, DatabaseMetadata, DbChecksums, DomainResult, Download, Result,
 } from './types.js';
 
 /**
@@ -29,12 +36,23 @@ import type {
  */
 export type DownloadDestination = string | Writable;
 
-export const DEFAULT_BASE_URL = 'https://internetdata.io';
+export const DEFAULT_BASE_URL = 'https://api.internetdata.io';
 
 // Matches the other SDKs, whose HTTP clients default to 30s. Node's global
 // fetch has no whole-request limit of its own, so without this a hung API holds
 // a caller until undici's 300s headers timeout.
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+// The most addresses POST /batch takes in one call; a larger batch is sent in
+// chunks of this size.
+const BATCH_MAX = 1000;
+
+export interface CacheOptions {
+    /** Maximum number of addresses held. Default 10000. */
+    max?: number;
+    /** How long an answer stays fresh, in milliseconds. Default 1 hour. */
+    ttlMs?: number;
+}
 
 export interface DownloadsOptions {
     /** How many attempts to return, newest first. The API clamps this to 200. */
@@ -73,12 +91,24 @@ export interface DownloadOptions {
 
 export interface Options {
     /**
-     * Your API key, carrying the `db.download` scope. Omit it to send no
-     * `Authorization` header at all, which is what a dataset offered without a
-     * license would be read with.
+     * Your API key. Without one a lookup is on Unlimited, the free plan, limited
+     * per address per minute, and no `Authorization` header is sent at all. The
+     * database calls need a key carrying the `db.download` scope. A batch needs
+     * a key on a paid plan.
      */
     apiKey?: string;
+    /**
+     * Default `https://api.internetdata.io`. The `oauth` calls go to the apex
+     * this names: `api.` dropped, and `api-<env>.` read as `<env>.`.
+     */
     baseUrl?: string;
+    /** Pass `false` to disable caching. */
+    cache?: CacheOptions | false;
+    /**
+     * Concurrent batch requests - chunks of up to 1000 addresses - during a
+     * batch, a whole number from 1. Default 8.
+     */
+    concurrency?: number;
     /** Retry attempts for a transient failure, a whole number from 0. Default 2. */
     retries?: number;
     /**
@@ -94,20 +124,42 @@ export interface Options {
     fetch?: typeof globalThis.fetch;
 }
 
+/** Per-call overrides for a single lookup. Anything omitted falls back to the client's setting. */
+export interface LookupOptions {
+    /** Retry attempts for a transient failure, a whole number from 0. */
+    retries?: number;
+    /** How long one attempt may take before it is abandoned, in milliseconds. */
+    timeoutMs?: number;
+}
+
+/** Per-call overrides for one batch. Anything omitted falls back to the client's setting. */
+export interface BatchOptions extends LookupOptions {
+    /** Concurrent batch requests for THIS batch only. */
+    concurrency?: number;
+}
+
 /**
  * A client for the InternetData API.
  *
- * Everything the API answers is scoped to the organization the key belongs to,
- * including which databases are listed at all, so one client speaks for exactly
- * one organization and nothing it learns may be reused for another key.
+ * The cache is per instance, so an answer is never shared between two clients
+ * holding different API keys and therefore entitled to different fields.
  *
- * The key is optional, and an absent one sends no `Authorization` header rather
- * than an empty one. `oauth` needs none. Every database published today is
- * licensed, so a keyless `database` call is answered `401` for now; it exists
- * because what the API serves without a license is a product decision, not the
- * client's to refuse.
+ * Everything the database calls answer is scoped to the organization the key
+ * belongs to, including which databases are listed at all, so one client speaks
+ * for exactly one organization and nothing it learns may be reused for another
+ * key. The key is optional, and an absent one sends no `Authorization` header
+ * rather than an empty one. `oauth` needs none.
  */
 export class InternetData {
+    private readonly client: Client;
+    // Keyed by address. The context is how a call sends the request when the
+    // address has none in flight: `fetch()` runs it synchronously, so a batch
+    // knows which addresses it leads before it builds a chunk.
+    private readonly cache: LRUCache<string, Result, () => Promise<Result>> | null;
+    private readonly limit: ReturnType<typeof pLimit>;
+    private readonly retries: number;
+    private readonly timeoutMs: number;
+
     /** The database catalog, downloads and their history. */
     readonly database: DatabaseApi;
 
@@ -123,18 +175,327 @@ export class InternetData {
         // the same implementation a test substituted.
         const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
         const apiKey = checkApiKey(options.apiKey);
-        const client = createClient(createConfig({
-            // Every path appended starts with a slash, and a second one is another
-            // path, which the API answers with a redirect.
-            baseUrl: (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, ''),
+        // Every path appended starts with a slash, and a second one is another
+        // path, which the API answers with a redirect.
+        const baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+        this.client = createClient(createConfig({
+            baseUrl: baseUrl,
             ...(apiKey === undefined ? {} : { auth: bearerOnly(apiKey) }),
             fetch: fetchImpl,
         }));
-        const retries = checkRetries(options.retries ?? 2);
-        const timeoutMs = checkTimeout(options.timeoutMs) ?? DEFAULT_TIMEOUT_MS;
-        this.database = new DatabaseApi(client, retries, timeoutMs, fetchImpl);
-        this.oauth = new OauthApi(client, retries, timeoutMs);
+        this.cache = options.cache === false ? null : new LRUCache<string, Result, () => Promise<Result>>({
+            max: options.cache?.max ?? 10_000,
+            ttl: options.cache?.ttlMs ?? 60 * 60 * 1000,
+            // Concurrent misses for one address share one request: every
+            // `fetch()` while it is in flight gets the same promise, and a
+            // failure rejects them all and is cached for none.
+            fetchMethod: (_ip, _stale, { context }) => context(),
+            // An eviction must not fail the callers awaiting a request.
+            ignoreFetchAbort: true,
+        });
+        this.limit = pLimit(checkConcurrency(options.concurrency) ?? 8);
+        this.retries = checkRetries(options.retries) ?? 2;
+        this.timeoutMs = checkTimeout(options.timeoutMs) ?? DEFAULT_TIMEOUT_MS;
+        this.database = new DatabaseApi(this.client, this.retries, this.timeoutMs, fetchImpl);
+        // The authorization server is the apex, not the API host, and its
+        // requests carry no credential at all.
+        const authServer = createClient(createConfig({ baseUrl: apexOf(baseUrl), fetch: fetchImpl }));
+        this.oauth = new OauthApi(authServer, this.retries, this.timeoutMs);
     }
+
+    /**
+     * Whether an address is private, loopback, link-local, documentation,
+     * multicast or otherwise not routable, including the IPv6 equivalents and
+     * the 6to4 and Teredo ranges.
+     *
+     * These are the addresses `lookup` answers locally. Exposed here so the
+     * check is reachable from the client you already hold; the same function is
+     * also importable on its own.
+     */
+    isBogon(ip: string): boolean {
+        return isBogon(ip);
+    }
+
+    /**
+     * What every database says about one address.
+     *
+     * A bogon is answered locally and never reaches the network. Everything
+     * else is served, then cached for this instance. Calls that miss the cache
+     * while a request for their address is in flight, a batch's included, await
+     * that request rather than sending their own, and take its answer, sent
+     * under the options of the call that led it. An IPv4-mapped address
+     * (`::ffff:8.8.8.8`) is the IPv4 address it carries: judged, sent and cached
+     * as that, so the answer names `8.8.8.8`.
+     */
+    async lookup(ip: string, options: LookupOptions = {}): Promise<Result> {
+        // First, or a bogon and a cached address would answer any value.
+        checkTimeout(options.timeoutMs);
+        checkRetries(options.retries);
+        const addr = unmapped(ip);
+        if (isBogon(addr)) {
+            return bogonResult(addr);
+        }
+        if (this.cache === null) {
+            return this.serve(addr, options);
+        }
+        return (await this.cache.fetch(addr, { context: () => this.serve(addr, options) }))!;
+    }
+
+    private async serve(ip: string, options: LookupOptions): Promise<Result> {
+        const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+        return withRetry(options.retries ?? this.retries, async () => {
+            const res = await deadline(timeoutMs, (signal) => lookupIp({
+                client: this.client, path: { ip: ip }, signal: signal,
+            }));
+            return toResult(readable<LookupResponse>(res, isLookup));
+        });
+    }
+
+    /**
+     * What the databases say about the address this client is calling from.
+     *
+     * The same answer `lookup` would give for that address, at the same cost
+     * against your allowance. The address is the one our edge observed, so a
+     * call made through a proxy or a VPN reports the exit it left through -
+     * usually the point of asking.
+     *
+     * Deliberately NOT cached. The cache is keyed by address, and which
+     * address this is IS the question: a machine that moves between networks
+     * would otherwise be told where it used to be.
+     */
+    async myIp(options: LookupOptions = {}): Promise<Result> {
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
+        return withRetry(checkRetries(options.retries) ?? this.retries, async () => {
+            const res = await deadline(timeoutMs, (signal) => lookupMyIp({
+                client: this.client, signal: signal,
+            }));
+            return toResult(readable<LookupResponse>(res, isLookup));
+        });
+    }
+
+    /**
+     * What InternetData knows about one autonomous system, by its number: its
+     * registration on every plan, and on a paid one its ASN Whois record and
+     * every prefix it announces.
+     *
+     * Sent as given and not cached. The API refuses a number it cannot read as
+     * `bad_request`.
+     */
+    async lookupAsn(asn: number, options: LookupOptions = {}): Promise<AsnResult> {
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
+        return withRetry(checkRetries(options.retries) ?? this.retries, async () => {
+            const res = await deadline(timeoutMs, (signal) => lookupAsn({
+                client: this.client, path: { asn: String(asn) }, signal: signal,
+            }));
+            return toAsnResult(readable<AsnLookupResponse>(res, isAsnLookup));
+        });
+    }
+
+    /**
+     * What InternetData knows about one domain: on every plan whether it is
+     * registered and which DNS record types it has, and on a paid one the
+     * records themselves, its organization's IP ranges and whether it is a
+     * disposable email domain.
+     *
+     * Sent as given and not cached. The API refuses a name it cannot read as
+     * `bad_request`.
+     */
+    async lookupDomain(domain: string, options: LookupOptions = {}): Promise<DomainResult> {
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
+        return withRetry(checkRetries(options.retries) ?? this.retries, async () => {
+            const res = await deadline(timeoutMs, (signal) => lookupDomain({
+                client: this.client, path: { domain: domain }, signal: signal,
+            }));
+            return toDomainResult(readable<DomainLookupResponse>(res, isDomainLookup));
+        });
+    }
+
+    /**
+     * What this client's key is entitled to, and how much of it has been used.
+     *
+     * Named for what it answers rather than `me`, which sits one letter from
+     * `myIp` and means something quite different: one is which address you are
+     * calling FROM, the other is what the key you are calling WITH may spend.
+     *
+     * Unlike a lookup there is no useful unauthenticated answer, so a client
+     * built without a key gets an unauthorized error rather than a partial one.
+     *
+     * Usage counts against the ALLOWANCE WINDOW - on a paid plan the
+     * anniversary of the subscription, not the calendar month and not the
+     * billing period, and on the free plan the UTC day - and it is the same
+     * number a lookup is gated on. It can lag by a few seconds, because
+     * requests are counted in memory and flushed in aggregate.
+     *
+     * Deliberately NOT cached: the whole point is what has been spent, and a
+     * cached answer is a wrong one within seconds of the next request.
+     */
+    async myEntitlement(options: LookupOptions = {}): Promise<Entitlement> {
+        const timeoutMs = checkTimeout(options.timeoutMs) ?? this.timeoutMs;
+        return withRetry(checkRetries(options.retries) ?? this.retries, async () => {
+            const res = await deadline(timeoutMs, (signal) => myEntitlement({
+                client: this.client, signal: signal,
+            }));
+            return readable<Entitlement>(res, isEntitlement);
+        });
+    }
+
+    /**
+     * Look many addresses up in as few requests as possible.
+     *
+     * Bogons are answered locally and cached answers are reused, and an address
+     * with a request already in flight, a lookup's or another batch's, awaits
+     * that request; everything else goes to the batch endpoint in chunks of up
+     * to 1000 addresses, with at most `concurrency` chunks in flight, and a
+     * lookup arriving meanwhile awaits this batch's answer for its address.
+     * Keyed by address rather than positional, so duplicates in the input
+     * collapse to a single entry and the caller never has to line two lists up.
+     * An address that fails carries its error as its value, so one bad entry
+     * cannot lose the rest of the answers: the API reports a per-entry failure
+     * with the status the single lookup would have answered, and a chunk that
+     * fails as a whole marks every address in it. A per-call `concurrency` that
+     * is not a whole number from 1 is refused as `bad_request` before anything
+     * is sent. An IPv4-mapped address is looked up as the IPv4 address it
+     * carries, and its answer keyed as you passed it. The batch endpoint needs
+     * a paid plan: without a key every address in a request of two or more
+     * carries an `unauthorized` error, and a free-plan key's request of two or
+     * more a `bad_request` (HTTP 402). A request of one address is answered as
+     * its lookup would be.
+     */
+    async lookupBatch(
+        ips: Iterable<string>, options: BatchOptions = {},
+    ): Promise<Map<string, Result | InternetDataError>> {
+        const concurrency = checkConcurrency(options.concurrency);
+        checkTimeout(options.timeoutMs);
+        checkRetries(options.retries);
+        const asked = [...new Set(ips)];
+        const unique = [...new Set(asked.map(unmapped))];
+        const out = new Map<string, Result | InternetDataError>();
+        const pending: string[] = [];
+        // Every address that is neither a bogon nor cached goes through
+        // `fetch()` in one synchronous pass: one with a request in flight joins
+        // it, and for the rest `fetchMethod` runs at once, which is how this
+        // batch learns the addresses it leads before building any chunk.
+        const shared: [string, Promise<Result | undefined>][] = [];
+        const led = new Map<string, PromiseWithResolvers<Result>>();
+        for (const ip of unique) {
+            if (isBogon(ip)) {
+                out.set(ip, bogonResult(ip));
+                continue;
+            }
+            const hit = this.cache?.get(ip);
+            if (hit !== undefined) {
+                out.set(ip, hit);
+                continue;
+            }
+            if (this.cache === null) {
+                pending.push(ip);
+                continue;
+            }
+            shared.push([ip, this.cache.fetch(ip, {
+                context: () => {
+                    const landing = Promise.withResolvers<Result>();
+                    led.set(ip, landing);
+                    pending.push(ip);
+                    return landing.promise;
+                },
+            })]);
+        }
+        // A per-call concurrency gets its own limiter; without one the call
+        // would share the instance's budget and silently ignore the override.
+        const limit = concurrency === undefined ? this.limit : pLimit(concurrency);
+        const chunks: string[][] = [];
+        for (let i = 0; i < pending.length; i += BATCH_MAX) {
+            chunks.push(pending.slice(i, i + BATCH_MAX));
+        }
+        await Promise.all([
+            ...chunks.map((chunk) => limit(async () => {
+                for (const [ip, answer] of await this.lookupChunk(chunk, options)) {
+                    const landing = led.get(ip);
+                    if (landing === undefined) {
+                        out.set(ip, answer);
+                    } else if (answer instanceof InternetDataError) {
+                        landing.reject(answer);
+                    } else {
+                        landing.resolve(answer);
+                    }
+                }
+            })),
+            ...shared.map(async ([ip, answer]) => {
+                try {
+                    out.set(ip, (await answer)!);
+                } catch (err) {
+                    out.set(ip, asError(err));
+                }
+            }),
+        ]);
+        // Reinstated in input order, under the addresses as passed: chunks
+        // settle in completion order, and a caller iterating the map should see
+        // what they passed in.
+        return new Map(asked.map((ip) => [ip, out.get(unmapped(ip))!]));
+    }
+
+    // One POST /batch, mapped back onto the addresses it was asked about. A
+    // chunk-level failure - the call refused, the transport failing, the
+    // retries exhausted - becomes every address's error, exactly as it would
+    // have been had each been looked up alone.
+    private async lookupChunk(
+        chunk: string[], options: LookupOptions,
+    ): Promise<Map<string, Result | InternetDataError>> {
+        const out = new Map<string, Result | InternetDataError>();
+        const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+        let body: BatchLookupResponse;
+        try {
+            body = await withRetry(options.retries ?? this.retries, async () => {
+                const res = await deadline(timeoutMs, (signal) => lookupBatch({
+                    client: this.client, body: { ips: chunk }, signal: signal,
+                }));
+                return readable<BatchLookupResponse>(res, isBatch);
+            });
+        } catch (err) {
+            const failure = asError(err);
+            for (const ip of chunk) {
+                out.set(ip, failure);
+            }
+            return out;
+        }
+        // An entry is judged alone: one the client cannot read is that address's
+        // error, and the rest of the chunk keeps its answers. Each map is read by
+        // its own keys alone, so `__proto__`, `constructor` and `toString` never
+        // read the object's prototype as a served answer.
+        for (const ip of chunk) {
+            const served = Object.hasOwn(body.results, ip) ? body.results[ip] : undefined;
+            if (served !== undefined) {
+                // Cached by the `fetch()` this batch leads it through.
+                out.set(ip, isLookup(served) ? toResult(served as LookupResponse) : unreadableEntry(ip));
+                continue;
+            }
+            const failed = Object.hasOwn(body.errors, ip) ? body.errors[ip] : undefined;
+            if (failed !== undefined) {
+                out.set(ip, isBatchError(failed) ? errorFromEntry(failed) : unreadableEntry(ip));
+                continue;
+            }
+            out.set(ip, new InternetDataError(
+                'server_error', `the batch answer did not include ${ip}`, 200,
+            ));
+        }
+        return out;
+    }
+}
+
+/**
+ * The host the `oauth` calls go to: the apex, since the authorization server is
+ * mounted there and not on the API host. `https://api.internetdata.io` is
+ * `https://internetdata.io` and `https://api-<env>.internetdata.io` is
+ * `https://<env>.internetdata.io`; any other base URL is used as given.
+ */
+function apexOf(baseUrl: string): string {
+    return baseUrl.replace(/^(https?:\/\/)api(?:-([^./:@]+))?\./i, (_, scheme: string, env?: string) => (
+        env === undefined ? scheme : `${scheme}${env}.`
+    ));
+}
+
+function unreadableEntry(ip: string): InternetDataError {
+    return new InternetDataError('server_error', `unreadable batch answer for ${ip}, status 200`, 200);
 }
 
 /** The licensed database downloads. Access is granted by contract, not self-serve. */
@@ -370,10 +731,11 @@ function checkBuild(build: unknown): string | undefined {
  * The key without the blanks around it, and no key at all for blanks alone,
  * which went out as `Authorization: Bearer` (2.5.1, measured 2026-10-10). A
  * control character inside it is refused here: fetch refuses such a header, so
- * every call failed as a retried `network` error with nothing sent.
+ * every call failed as a retried `network` error with nothing sent. `null` is no
+ * key.
  */
 function checkApiKey(apiKey: unknown): string | undefined {
-    if (apiKey === undefined) {
+    if (apiKey === undefined || apiKey === null) {
         return undefined;
     }
     if (typeof apiKey !== 'string') {
@@ -389,21 +751,6 @@ function checkApiKey(apiKey: unknown): string | undefined {
         throw new InternetDataError('bad_request', 'apiKey must not contain a character past U+00FF');
     }
     return key === '' ? undefined : key;
-}
-
-/**
- * A retry count p-retry can run, refused where it is set: through 2.7.3 a negative,
- * NaN or non-number failed every call with p-retry's own TypeError as a `network`
- * error, and a fraction ended a failing call as one too (measured 2026-10-23).
- * `Infinity` is p-retry's own unbounded count.
- */
-function checkRetries(retries: unknown): number {
-    if (typeof retries === 'number' && (Number.isInteger(retries) || retries === Infinity) && retries >= 0) {
-        return retries;
-    }
-    throw new InternetDataError(
-        'bad_request', `retries must be a whole number from 0, got ${String(retries)}`,
-    );
 }
 
 /**
