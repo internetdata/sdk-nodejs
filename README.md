@@ -321,6 +321,8 @@ const registration = await client.oauth.register(['http://127.0.0.1:8765/callbac
 
 Each redirect URI must be https on a public host name, or http on a loopback address, which then matches any port. Nothing is kept until a person approves the client, so an app with no client ID saved can simply register again.
 
+`createPkce` and `pkceChallenge` hash with `node:crypto`, so they need Node.js 22.3 or newer. They and `database.download` are the only calls that need Node.js: the rest of the client, and `@internetdata/internetdata/middleware`, run on an Edge runtime too.
+
 ### Absent is not false
 
 Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its daily trial is spent. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
