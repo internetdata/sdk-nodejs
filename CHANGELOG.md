@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.9.0 - 2026-11-13
+
+### Features
+
+- Look up an address, an AS or a domain, at api.internetdata.io ([`590d790`](https://github.com/internetdata/sdk-nodejs/commit/590d7900511bd06db066fc1c02f1b283e53f477a))
+
 ## 2.8.1 - 2026-11-09
 
 ### Fixes
