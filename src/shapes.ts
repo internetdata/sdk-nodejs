@@ -145,7 +145,7 @@ export const WHOIS_TYPES: Record<string, Kind> = {
 export const RWHOIS_TYPES: Record<string, Kind> = {
     id: 'string', name: 'string', country: 'string', source: 'string', domain: 'string', abuse_email: 'string',
 };
-export const HOSTED_DOMAINS_TYPES: Record<string, Kind> = { total: 'integer' };
+export const HOSTED_DOMAINS_TYPES: Record<string, Kind> = { total: 'integer', domains: 'array' };
 export const ASN_LOOKUP_TYPES: Record<string, Kind> = {
     asn: 'integer', name: 'string', country: 'string', registry: 'string', allocated: 'string', domain: 'string',
     type: 'string', num_ips: 'integer', num_prefixes4: 'integer', num_prefixes6: 'integer', rpki_valid: 'integer',
@@ -307,6 +307,7 @@ export function isLookup(data: unknown): boolean {
         && optional(data['pubproxy'], (pubproxy) => lists(pubproxy, 'protocols', isString))
         && optional(data['bittorrent'], (bittorrent) => lists(bittorrent, 'clients', isString))
         && optional(data['web'], (web) => every(web, (row) => typed(row, WEB_DETAIL_MEMBERS, WEB_DETAIL_TYPES)))
+        && optional(data['hosted_domains'], (hosted) => lists(hosted, 'domains', isString))
         && SHARED.every(([member, required, types]) => optional(data[member], (o) => typed(o, required, types)));
 }
 

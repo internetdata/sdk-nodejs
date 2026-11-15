@@ -48,8 +48,8 @@ export function unmapped(ip: string): string {
  * The answer a bogon gets, in the shape the API answers one on a paid plan:
  * every flag present and false, every detail object present and empty (Web
  * IP's list empty), `location`, `asn`, `company`, `abuse`, `whois` and `rwhois`
- * with every key empty, `hostname` empty, `hosted_domains` 0, and `is_bogon`
- * true, as the API serves it.
+ * with every key empty, `hostname` empty, `hosted_domains` 0 with no domains, and
+ * `is_bogon` true, as the API serves it.
  *
  * Note this is the WIDEST shape regardless of your plan, so do not infer which
  * fields your plan includes from a bogon answer.
@@ -134,7 +134,7 @@ function bogonAnswer(ip: string): LookupResponse {
             id: '', name: '', org: '', country: '', status: '', source: '', domain: '', abuse_email: '', asn: 0,
         },
         rwhois: { id: '', name: '', country: '', source: '', domain: '', abuse_email: '' },
-        hosted_domains: { total: 0 },
+        hosted_domains: { total: 0, domains: [] },
     };
 }
 
