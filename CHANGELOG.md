@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.11.0 - 2026-11-15
+
+### Features
+
+- Read hosted_domains' 10 most popular domains ([`e547ea0`](https://github.com/internetdata/sdk-nodejs/commit/e547ea0fb086ea91b4da4c1404bcee6c63de8898))
+
 ## 2.10.1 - 2026-11-14
 
 ### Fixes
