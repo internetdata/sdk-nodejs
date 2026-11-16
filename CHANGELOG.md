@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.12.0 - 2026-11-16
+
+### Features
+
+- Read an AS's rank, neighbors and hosted domains, and the plan's name ([`4e39861`](https://github.com/internetdata/sdk-nodejs/commit/4e3986199fc541429f7294585cb201e03cbf5a69))
+
 ## 2.11.0 - 2026-11-15
 
 ### Features
