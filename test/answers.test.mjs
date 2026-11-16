@@ -169,7 +169,7 @@ test('a date or date-time that is not RFC 3339 is a retried server_error', async
         http_status: 302, apikey_id: null, client_ip: null, user_agent: null, created: '2026-09-04T10:00:00Z',
     };
     const entitlement = {
-        org_id: 'o', apikey: { id: 'a', expires: null, allowed_cidrs: [] }, plan: { key: 'max', tier: 'max' },
+        org_id: 'o', apikey: { id: 'a', expires: null, allowed_cidrs: [] }, plan: { key: 'max', name: 'Max', tier: 'max' },
         usage: { requests: 1, quota: 2, hard_limit: null, window_start: '2026-10-01T00:00:00Z', window_end: '2026-11-01T00:00:00Z' },
     };
     const list = (c) => c.database.list();

@@ -589,8 +589,8 @@ export class DatabaseApi {
      * The API answers `302` to object storage. The URL is returned rather than
      * the bytes so the caller decides how to transfer a file that runs to
      * gigabytes; it carries its own authorization, so it can be handed to
-     * something that holds no API key. The link authorizes the START of a
-     * transfer, so one already running is not interrupted when it lapses.
+     * something that holds no API key. The link only has to be valid when a
+     * transfer starts, so one already running isn't cut off when it lapses.
      */
     async downloadUrl(
         id: string, format: DatabaseFormat, options: DownloadUrlOptions = {},

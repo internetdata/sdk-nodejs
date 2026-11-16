@@ -44,7 +44,7 @@ export const BATCH_MEMBERS = ['results', 'errors'] as const;
 export const BATCH_ERROR_MEMBERS = ['status', 'error'] as const;
 export const ENTITLEMENT_MEMBERS = ['org_id', 'apikey', 'plan', 'usage'] as const;
 export const ENTITLEMENT_APIKEY_MEMBERS = ['id', 'allowed_cidrs'] as const;
-export const ENTITLEMENT_PLAN_MEMBERS = ['key', 'tier'] as const;
+export const ENTITLEMENT_PLAN_MEMBERS = ['key', 'name', 'tier'] as const;
 export const ENTITLEMENT_USAGE_MEMBERS = ['requests', 'quota', 'window_start', 'window_end'] as const;
 
 export const DATABASE_MEMBERS = ['base', 'name', 'summary', 'standing', 'open', 'versions'] as const;
@@ -149,7 +149,9 @@ export const HOSTED_DOMAINS_TYPES: Record<string, Kind> = { total: 'integer', do
 export const ASN_LOOKUP_TYPES: Record<string, Kind> = {
     asn: 'integer', name: 'string', country: 'string', registry: 'string', allocated: 'string', domain: 'string',
     type: 'string', num_ips: 'integer', num_prefixes4: 'integer', num_prefixes6: 'integer', rpki_valid: 'integer',
-    rpki_invalid: 'integer', rpki_not_found: 'integer', whois: 'object', prefixes: 'array', trial_expired: FLAG,
+    rpki_invalid: 'integer', rpki_not_found: 'integer', whois: 'object', prefixes: 'array', rank: 'integer',
+    tier1: FLAG, num_upstreams: 'integer', upstreams: 'array', num_peers: 'integer', peers: 'array',
+    num_downstreams: 'integer', downstreams: 'array', hosted_domains: 'object', trial_expired: FLAG,
 };
 export const ASN_PREFIX_TYPES: Record<string, Kind> = {
     prefix: 'string', peer_count: 'integer', rpki_status: 'string', first_seen: 'string', country: 'string',
@@ -184,7 +186,7 @@ export const ENTITLEMENT_TYPES: Record<string, Kind> = {
 export const ENTITLEMENT_APIKEY_TYPES: Record<string, Kind> = {
     id: 'string', expires: 'date-time', allowed_cidrs: 'array',
 };
-export const ENTITLEMENT_PLAN_TYPES: Record<string, Kind> = { key: 'string', tier: 'string' };
+export const ENTITLEMENT_PLAN_TYPES: Record<string, Kind> = { key: 'string', name: 'string', tier: 'string' };
 export const ENTITLEMENT_USAGE_TYPES: Record<string, Kind> = {
     requests: 'integer', quota: 'integer', hard_limit: 'integer', window_start: 'date-time',
     window_end: 'date-time',
@@ -315,7 +317,12 @@ export function isAsnLookup(data: unknown): boolean {
     return typed(data, ASN_LOOKUP_MEMBERS, ASN_LOOKUP_TYPES)
         && optional(data['whois'], (whois) => values(whois, isString))
         && lists(data, 'prefixes', (prefix) => typed(prefix, ASN_PREFIX_MEMBERS, ASN_PREFIX_TYPES)
-            && every(prefix['other_origins'], Number.isInteger));
+            && every(prefix['other_origins'], Number.isInteger))
+        && lists(data, 'upstreams', Number.isInteger)
+        && lists(data, 'peers', Number.isInteger)
+        && lists(data, 'downstreams', Number.isInteger)
+        && optional(data['hosted_domains'], (hosted) => typed(hosted, HOSTED_DOMAINS_MEMBERS, HOSTED_DOMAINS_TYPES)
+            && lists(hosted, 'domains', isString));
 }
 
 export function isDomainLookup(data: unknown): boolean {

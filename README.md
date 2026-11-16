@@ -55,7 +55,7 @@ console.log(domain.isRegistered);   // true
 console.log(domain.dns?.mx);        // on a paid plan
 ```
 
-Unlimited answers an AS's registration, and whether a domain is registered and which record types it has. A paid plan adds the AS's whois record and prefixes, and the domain's records, IP ranges and whether it is disposable. Neither lookup is cached or batched, and `lookup` refuses an AS or a domain before sending it.
+Unlimited answers an AS's registration, and whether a domain is registered and which record types it has. A paid plan adds the AS's whois record, prefixes, rank, Tier 1 flag, upstreams, peers, downstreams and hosted domains, and the domain's records, IP ranges and whether it is disposable. Neither lookup is cached or batched, and `lookup` refuses an AS or a domain before sending it.
 
 ### Your own address
 
@@ -69,6 +69,7 @@ console.log(result.ip);   // the address we saw this call come from
 ```js
 const ent = await client.myEntitlement();
 console.log(ent.plan.key);          // starter
+console.log(ent.plan.name);         // Starter, the name to show
 console.log(ent.usage.requests);    // 580
 console.log(ent.usage.window_end);  // when the allowance resets
 ```

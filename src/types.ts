@@ -1,5 +1,5 @@
 import type {
-    AbuseContact, Asn, AsnLookupResponse, AsnPrefix, BitTorrentDetail, CarrierDetail, ClassDetail, Company,
+    AbuseContact, Asn, AsnHostedDomains, AsnLookupResponse, AsnPrefix, BitTorrentDetail, CarrierDetail, ClassDetail, Company,
     Database, DatabaseFormat, DatabaseMetadata, DatabaseMetadataColumn, DatabaseVersion, DbChecksums,
     DisposableDetail, DnsAddressRecord, DnsCnameRecord, DnsMxRecord, DnsNsRecord, DnsResolverDetail, DomainDns,
     DomainIpRange, DomainIpRanges, DomainLookupResponse, Download, Entitlement, EntitlementApikey,
@@ -8,7 +8,7 @@ import type {
 } from './generated/types.gen.js';
 
 export type {
-    AbuseContact, Asn, AsnLookupResponse, AsnPrefix, BitTorrentDetail, CarrierDetail, ClassDetail, Company,
+    AbuseContact, Asn, AsnHostedDomains, AsnLookupResponse, AsnPrefix, BitTorrentDetail, CarrierDetail, ClassDetail, Company,
     Database, DatabaseFormat, DatabaseMetadata, DatabaseMetadataColumn, DatabaseVersion, DbChecksums,
     DisposableDetail, DnsAddressRecord, DnsCnameRecord, DnsMxRecord, DnsNsRecord, DnsResolverDetail, DomainDns,
     DomainIpRange, DomainIpRanges, DomainLookupResponse, Download, Entitlement, EntitlementApikey,
@@ -130,6 +130,16 @@ export interface AsnResult {
     rpkiNotFound?: number;
     whois?: { [key: string]: string };
     prefixes?: AsnPrefix[];
+    /** Its rank in ASN Extended by customer cone, 1 the largest; `0` for an AS seen in no AS path. */
+    rank?: number;
+    tier1?: boolean;
+    numUpstreams?: number;
+    upstreams?: number[];
+    numPeers?: number;
+    peers?: number[];
+    numDownstreams?: number;
+    downstreams?: number[];
+    hostedDomains?: AsnHostedDomains;
     trialExpired?: boolean;
     /** The response exactly as it came off the wire, with its original names. */
     raw: AsnLookupResponse;
@@ -175,7 +185,9 @@ const ASN_RESULT_NAMES: Record<keyof AsnLookupResponse, Exclude<keyof AsnResult,
     asn: 'asn', name: 'name', country: 'country', registry: 'registry', allocated: 'allocated', domain: 'domain',
     type: 'type', num_ips: 'numIps', num_prefixes4: 'numPrefixes4', num_prefixes6: 'numPrefixes6',
     rpki_valid: 'rpkiValid', rpki_invalid: 'rpkiInvalid', rpki_not_found: 'rpkiNotFound', whois: 'whois',
-    prefixes: 'prefixes', trial_expired: 'trialExpired',
+    prefixes: 'prefixes', rank: 'rank', tier1: 'tier1', num_upstreams: 'numUpstreams', upstreams: 'upstreams',
+    num_peers: 'numPeers', peers: 'peers', num_downstreams: 'numDownstreams', downstreams: 'downstreams',
+    hosted_domains: 'hostedDomains', trial_expired: 'trialExpired',
 };
 
 const DOMAIN_RESULT_NAMES: Record<keyof DomainLookupResponse, Exclude<keyof DomainResult, 'raw'>> = {

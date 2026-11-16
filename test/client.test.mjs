@@ -16,7 +16,7 @@ const answer = (name) => data.lookup.find((c) => c.name === name).body;
 // A served answer for any address: Unlimited's, as the corpus spells it.
 const served = (ip) => ({ ...answer('unlimited-answer'), ip: ip });
 const ENTITLEMENT = {
-    org_id: 'o', apikey: { id: 'k', expires: null, allowed_cidrs: [] }, plan: { key: 'max', tier: 'max' },
+    org_id: 'o', apikey: { id: 'k', expires: null, allowed_cidrs: [] }, plan: { key: 'max', name: 'Max', tier: 'max' },
     usage: { requests: 1, quota: 10, hard_limit: null, window_start: '2026-10-01T00:00:00Z', window_end: '2026-11-01T00:00:00Z' },
 };
 
