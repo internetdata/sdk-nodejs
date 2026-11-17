@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.13.0 - 2026-11-17
+
+### Features
+
+- Read cap_reached on a paid answer past its overage cap ([`3d38261`](https://github.com/internetdata/sdk-nodejs/commit/3d38261588077b30d8b1d1cc33d4008601699d10))
+
 ## 2.12.0 - 2026-11-16
 
 ### Features
