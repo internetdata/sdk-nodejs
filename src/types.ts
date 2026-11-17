@@ -80,6 +80,12 @@ export interface Result {
      * every field lasts, `true` once the answer has Unlimited's.
      */
     trialExpired?: boolean;
+    /**
+     * On answers to a key on a paid plan only: `false` while the answer has every
+     * field, `true` once the organization's overage cap is reached and the answer
+     * has Unlimited's. Lookups answered past the cap are not billed.
+     */
+    capReached?: boolean;
 
     vpn?: ClassDetail;
     tor: ClassDetail;
@@ -141,6 +147,7 @@ export interface AsnResult {
     downstreams?: number[];
     hostedDomains?: AsnHostedDomains;
     trialExpired?: boolean;
+    capReached?: boolean;
     /** The response exactly as it came off the wire, with its original names. */
     raw: AsnLookupResponse;
 }
@@ -160,6 +167,7 @@ export interface DomainResult {
     /** `{}` when `isDisposable` is false. */
     disposable?: DisposableDetail;
     trialExpired?: boolean;
+    capReached?: boolean;
     /** The response exactly as it came off the wire, with its original names. */
     raw: DomainLookupResponse;
 }
@@ -174,6 +182,7 @@ const RESULT_NAMES: Record<keyof LookupResponse, Exclude<keyof Result, 'raw'>> =
     is_hosting: 'isHosting', is_cdn: 'isCdn', is_anycast: 'isAnycast', is_carrier: 'isCarrier',
     is_satellite: 'isSatellite', is_ssh: 'isSsh', is_smtp: 'isSmtp', is_web: 'isWeb',
     is_dns_resolver: 'isDnsResolver', is_bittorrent: 'isBittorrent', trial_expired: 'trialExpired',
+    cap_reached: 'capReached',
     vpn: 'vpn', tor: 'tor', relay: 'relay', resproxy: 'resproxy', dcproxy: 'dcproxy', mobproxy: 'mobproxy',
     pubproxy: 'pubproxy', hosting: 'hosting', cdn: 'cdn', carrier: 'carrier', satellite: 'satellite', ssh: 'ssh',
     smtp: 'smtp', web: 'web', dns_resolver: 'dnsResolver', bittorrent: 'bittorrent', location: 'location',
@@ -187,13 +196,14 @@ const ASN_RESULT_NAMES: Record<keyof AsnLookupResponse, Exclude<keyof AsnResult,
     rpki_valid: 'rpkiValid', rpki_invalid: 'rpkiInvalid', rpki_not_found: 'rpkiNotFound', whois: 'whois',
     prefixes: 'prefixes', rank: 'rank', tier1: 'tier1', num_upstreams: 'numUpstreams', upstreams: 'upstreams',
     num_peers: 'numPeers', peers: 'peers', num_downstreams: 'numDownstreams', downstreams: 'downstreams',
-    hosted_domains: 'hostedDomains', trial_expired: 'trialExpired',
+    hosted_domains: 'hostedDomains', trial_expired: 'trialExpired', cap_reached: 'capReached',
 };
 
 const DOMAIN_RESULT_NAMES: Record<keyof DomainLookupResponse, Exclude<keyof DomainResult, 'raw'>> = {
     domain: 'domain', is_registered: 'isRegistered', is_disposable: 'isDisposable', has_a: 'hasA',
     has_aaaa: 'hasAaaa', has_mx: 'hasMx', has_ns: 'hasNs', has_cname: 'hasCname', dns: 'dns',
     ip_ranges: 'ipRanges', disposable: 'disposable', trial_expired: 'trialExpired',
+    cap_reached: 'capReached',
 };
 
 export function toResult(body: LookupResponse): Result {

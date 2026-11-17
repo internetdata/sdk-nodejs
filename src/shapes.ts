@@ -79,7 +79,7 @@ export const LOOKUP_TYPES: Record<string, Kind> = {
     pubproxy: 'object', hosting: 'object', cdn: 'object', carrier: 'object', satellite: 'object', ssh: 'object',
     smtp: 'object', web: 'array', dns_resolver: 'object', bittorrent: 'object', location: 'object', asn: 'object',
     company: 'object', hostname: 'string', abuse: 'object', whois: 'object', rwhois: 'object',
-    hosted_domains: 'object', trial_expired: FLAG,
+    hosted_domains: 'object', trial_expired: FLAG, cap_reached: FLAG,
 };
 export const CLASS_DETAIL_TYPES: Record<string, Kind> = {
     provider: 'string', provider_name: 'string', confidence: 'string', last_seen: 'string',
@@ -152,6 +152,7 @@ export const ASN_LOOKUP_TYPES: Record<string, Kind> = {
     rpki_invalid: 'integer', rpki_not_found: 'integer', whois: 'object', prefixes: 'array', rank: 'integer',
     tier1: FLAG, num_upstreams: 'integer', upstreams: 'array', num_peers: 'integer', peers: 'array',
     num_downstreams: 'integer', downstreams: 'array', hosted_domains: 'object', trial_expired: FLAG,
+    cap_reached: FLAG,
 };
 export const ASN_PREFIX_TYPES: Record<string, Kind> = {
     prefix: 'string', peer_count: 'integer', rpki_status: 'string', first_seen: 'string', country: 'string',
@@ -160,6 +161,7 @@ export const ASN_PREFIX_TYPES: Record<string, Kind> = {
 export const DOMAIN_LOOKUP_TYPES: Record<string, Kind> = {
     domain: 'string', is_registered: FLAG, is_disposable: FLAG, has_a: FLAG, has_aaaa: FLAG, has_mx: FLAG,
     has_ns: FLAG, has_cname: FLAG, dns: 'object', ip_ranges: 'object', disposable: 'object', trial_expired: FLAG,
+    cap_reached: FLAG,
 };
 export const DOMAIN_DNS_TYPES: Record<string, Kind> = {
     a: 'array', aaaa: 'array', mx: 'array', ns: 'array', cname: 'array',

@@ -164,7 +164,7 @@ try {
 
 `kind` is one of `bad_request`, `unauthorized`, `forbidden`, `rate_limited`, `quota_exceeded`, `server_error` or `network`. The message is the API's own: a sentence from a lookup, and from a database call its result code, such as `NOT_LICENSED` or `LICENSE_EXPIRED`.
 
-`rate_limited` is a 429 that carries `Retry-After`, and the library retries it for you. `quota_exceeded` is a 429 without one, which it never retries: your allowance needs raising, or its window has to roll over. The database calls have no quota, so only a lookup answers `quota_exceeded`.
+`rate_limited` is a 429 that carries `Retry-After`, and the library retries it for you. `quota_exceeded` is a 429 without one, which it never retries. The API itself always sends `Retry-After` with a 429, so that one comes from something in between, such as a proxy; a paid key past its overage cap gets `capReached` instead. The database calls have no quota, so only a lookup answers `quota_exceeded`.
 
 A failure part way through a transfer is rethrown as it arrived rather than wrapped: a reset socket and a full disk are different problems, and only one of them is ours.
 
@@ -326,12 +326,13 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its daily trial is spent. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
+Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its daily trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
 
 ```js
 result.isVpn ?? false            // when you only want the flag
 result.isVpn === undefined       // on Unlimited: not in your plan
 result.trialExpired === true     // a free-plan key's daily trial is spent
+result.capReached === true       // a paid key is past its overage cap
 ```
 
 ## Other Libraries
