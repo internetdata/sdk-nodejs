@@ -337,3 +337,26 @@ test('a response enum value this release was not built with comes back as served
         assert.equal(c.calls.length, 1);
     }
 });
+
+// The shared corpus's case per response enum: each answer reads, and each `expect`
+// path through its wire names comes back as served.
+test('every vocabulary case in the corpus comes back as served', async () => {
+    const corpus = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8'));
+    const calls = {
+        myEntitlement: [(c) => c.myEntitlement(), null],
+        listDatabases: [(c) => c.database.list(), 'databases'],
+        listDownloads: [(c) => c.database.downloads(), 'downloads'],
+    };
+    assert.ok(corpus.vocabulary.cases.length >= 7);
+    for (const { name, call, answer, expect } of corpus.vocabulary.cases) {
+        const [run, envelope] = calls[call];
+        const c = rawClient(body(JSON.stringify(answer)));
+        const got = await run(c.client);
+        for (const [path, want] of Object.entries(expect)) {
+            const steps = path.split('.');
+            assert.equal(envelope === null || steps.shift() === envelope, true, `${name}: ${path}`);
+            assert.equal(steps.reduce((at, step) => at?.[step], got), want, `${name}: ${path}`);
+        }
+        assert.equal(c.calls.length, 1, name);
+    }
+});
