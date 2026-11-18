@@ -298,3 +298,42 @@ test('each checked member list is every required member of its generated type', 
     const members = [...answer.matchAll(/^ {8}([a-z][a-z0-9_]*): (.*)$/gm)].map((m) => m[1]).sort();
     assert.deepEqual([...CHECKSUM_ANSWER_MEMBERS].sort(), members);
 });
+
+// A value the API adds to a closed vocabulary comes back as served rather than failing
+// the call, so a new plan tier, standing, license type, format or outcome needs no
+// lockstep release. Held since 2.7.x (measured 2026-11-04); pinned here until the
+// shared corpus carries a case per response enum.
+test('a response enum value this release was not built with comes back as served', async () => {
+    const version = { id: 'bogon_asn_v1', version: 1, summary: 's', formats: ['csvgz', 'parquet'] };
+    const database = {
+        base: 'bogon_asn', name: 'n', summary: 's', standing: 'suspended', open: false, license_type: 'oem',
+        starts: null, expires: null, versions: [version],
+    };
+    const listed = rawClient(body(JSON.stringify({ databases: [database] })));
+    const [got] = await listed.client.database.list();
+    assert.equal(got.standing, 'suspended');
+    assert.equal(got.license_type, 'oem');
+    assert.deepEqual(got.versions[0].formats, ['csvgz', 'parquet']);
+
+    const download = {
+        dataset_id: 'bogon_asn_v1', format: 'parquet', outcome: 'throttled', sample: false, open: false, bytes: 760,
+        http_status: 429, apikey_id: null, client_ip: null, user_agent: null, created: '2026-09-04T10:00:00Z',
+    };
+    const logged = rawClient(body(JSON.stringify({ downloads: [download] })));
+    const [entry] = await logged.client.database.downloads();
+    assert.equal(entry.outcome, 'throttled');
+    assert.equal(entry.format, 'parquet');
+
+    const entitlement = {
+        org_id: 'o', apikey: { id: 'a', expires: null, allowed_cidrs: [] }, plan: { key: 'data', name: 'Data', tier: 'data' },
+        usage: { requests: 1, quota: 2, hard_limit: null, window_start: '2026-10-01T00:00:00Z', window_end: '2026-11-01T00:00:00Z' },
+    };
+    const entitled = rawClient(body(JSON.stringify(entitlement)));
+    const plan = (await entitled.client.myEntitlement()).plan;
+    assert.equal(plan.tier, 'data');
+    assert.equal(plan.key, 'data');
+    assert.equal(plan.name, 'Data');
+    for (const c of [listed, logged, entitled]) {
+        assert.equal(c.calls.length, 1);
+    }
+});
