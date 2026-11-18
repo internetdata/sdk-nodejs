@@ -2,6 +2,17 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.14.0 - 2026-11-18
+
+### Features
+
+- Name the SDK in every request's User-Agent ([`9818db3`](https://github.com/internetdata/sdk-nodejs/commit/9818db3e4acfebb89b88fdb4530bcf178241138f))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.17 as republished: KEY_OVER_HTTP on the account 403 ([`ab0505f`](https://github.com/internetdata/sdk-nodejs/commit/ab0505fa5280ab0d283b861d7d6878851c2da49d))
+- Say ASNs, not ASes, in the package description ([`0b2260c`](https://github.com/internetdata/sdk-nodejs/commit/0b2260cada0b7e2bc344926ba159cd564143e432))
+
 ## 2.13.0 - 2026-11-17
 
 ### Features
