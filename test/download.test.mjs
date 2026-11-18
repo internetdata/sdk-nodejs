@@ -94,6 +94,38 @@ async function start(opts) {
 const tmp = mkdtempSync(join(tmpdir(), 'internetdata-dl-'));
 after(() => rmSync(tmp, { recursive: true, force: true }));
 
+// Through 2.13.0 every request went out as fetch's `node`.
+test('every request names the SDK, OAuth and the transfer included, and a fetch passed in sees it', async (t) => {
+    const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    const o = await start();
+    t.after(() => o.server.close());
+
+    await o.client.database.downloadBytes('small_v1', 'csvgz');
+    await assert.rejects(() => o.client.database.list());
+    await assert.rejects(() => o.client.lookup('8.8.8.8'));
+    await assert.rejects(() => o.client.oauth.metadata());
+    assert.deepEqual(o.seen.map((r) => r.path),
+        ['/api/v2/database/download', '/blob', '/api/v2/database/list', '/8.8.8.8',
+            '/.well-known/oauth-authorization-server']);
+    for (const r of o.seen) {
+        assert.equal(r.headers['user-agent'], `internetdata-nodejs/${version}`, r.path);
+    }
+
+    const handed = [];
+    const wrapped = new InternetData({
+        baseUrl: o.baseUrl, retries: 0, fetch: async (input, init) => {
+            const request = new Request(input, init);
+            handed.push(request.headers.get('user-agent'));
+            request.headers.set('user-agent', `wrapper/1.0 ${request.headers.get('user-agent')}`);
+            return fetch(request);
+        },
+    });
+    await wrapped.database.downloadBytes('small_v1', 'csvgz');
+    assert.deepEqual(handed, [`internetdata-nodejs/${version}`, `internetdata-nodejs/${version}`]);
+    assert.deepEqual(o.seen.slice(-2).map((r) => r.headers['user-agent']),
+        [`wrapper/1.0 internetdata-nodejs/${version}`, `wrapper/1.0 internetdata-nodejs/${version}`]);
+});
+
 test('downloadUrl returns the Location and does not follow it', async (t) => {
     const o = await start();
     t.after(() => o.server.close());

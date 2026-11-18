@@ -6,6 +6,7 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
 import { createClient, createConfig } from './generated/client/index.js';
 import type { Client } from './generated/client/index.js';
+import { VERSION } from './generated/version.js';
 import {
     databaseChecksumV2, databaseMetadataV2, downloadDatabaseV2 as downloadRedirect,
     listDatabases, listDownloads, lookupAsn, lookupBatch, lookupDomain, lookupIp, lookupMyIp, myEntitlement,
@@ -174,7 +175,7 @@ export class InternetData {
         // Resolved once, because the download path calls object storage
         // directly rather than through the generated client and has to reach
         // the same implementation a test substituted.
-        const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+        const fetchImpl = named(options.fetch ?? globalThis.fetch.bind(globalThis));
         const apiKey = checkApiKey(options.apiKey);
         // Every path appended starts with a slash, and a second one is another
         // path, which the API answers with a redirect.
@@ -777,6 +778,30 @@ function checkApiKey(apiKey: unknown): string | undefined {
  */
 function bearerOnly(apiKey: string): (auth: { scheme?: string }) => string | undefined {
     return (auth) => (auth.scheme === 'bearer' ? apiKey : undefined);
+}
+
+/**
+ * Names the SDK on every request it sends, the API's, OAuth's and object
+ * storage's alike: without it a request reads as fetch's `node`, so neither this
+ * SDK's traffic nor which versions are still in use can be counted. A fetch passed
+ * in sees the header already set, so a program wrapping the SDK can put its own
+ * name first.
+ */
+function named(fetchImpl: typeof globalThis.fetch): typeof globalThis.fetch {
+    const userAgent = `internetdata-nodejs/${VERSION}`;
+    return (input, init) => {
+        if (input instanceof Request) {
+            if (!input.headers.has('user-agent')) {
+                input.headers.set('user-agent', userAgent);
+            }
+            return fetchImpl(input, init);
+        }
+        const headers = new Headers(init?.headers);
+        if (!headers.has('user-agent')) {
+            headers.set('user-agent', userAgent);
+        }
+        return fetchImpl(input, { ...init, headers: headers });
+    };
 }
 
 /**
