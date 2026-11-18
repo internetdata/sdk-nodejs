@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { InternetData } from '../dist/index.js';
+import { withoutBackoff } from './backoff.mjs';
 import {
     CHECKSUM_ANSWER_MEMBERS, DATABASE_MEMBERS, DATABASE_METADATA_MEMBERS, DATABASE_VERSION_MEMBERS,
     DB_CHECKSUMS_MEMBERS, DOWNLOAD_MEMBERS,
@@ -58,7 +59,7 @@ test('a 2xx a database call cannot read is a retried server_error carrying its s
         };
         for (const [kind, reply] of Object.entries(replies)) {
             const c = rawClient(reply);
-            await assert.rejects(() => call(c.client), (err) => {
+            await assert.rejects(() => withoutBackoff(() => call(c.client)), (err) => {
                 assert.equal(err.kind, 'server_error', `${name} ${kind}: ${err.message}`);
                 assert.equal(err.status, 200, `${name} ${kind}`);
                 return true;
@@ -108,7 +109,7 @@ test('a member of the wrong type is a retried server_error carrying its status',
     };
     for (const [name, [call, answer]] of Object.entries(cases)) {
         const c = rawClient(body(JSON.stringify(answer)));
-        await assert.rejects(() => call(c.client), (err) => {
+        await assert.rejects(() => withoutBackoff(() => call(c.client)), (err) => {
             assert.equal(err.kind, 'server_error', `${name}: ${err.message}`);
             assert.equal(err.status, 200, name);
             return true;
@@ -133,7 +134,7 @@ test('a checksum answer without its ID or format is a retried server_error', asy
     };
     for (const [name, served] of Object.entries(cases)) {
         const c = rawClient(body(JSON.stringify(served)));
-        await assert.rejects(() => c.client.database.checksums('bogon_asn_v1', 'csvgz'), (err) => {
+        await assert.rejects(() => withoutBackoff(() => c.client.database.checksums('bogon_asn_v1', 'csvgz')), (err) => {
             assert.equal(err.kind, 'server_error', `${name}: ${err.message}`);
             assert.equal(err.status, 200, name);
             return true;
@@ -196,7 +197,7 @@ test('a date or date-time that is not RFC 3339 is a retried server_error', async
         const retries = retried.has(member) ? 0 : 1;
         retried.add(member);
         const c = rawClient(body(JSON.stringify(served)), retries);
-        await assert.rejects(() => call(c.client), (err) => {
+        await assert.rejects(() => withoutBackoff(() => call(c.client)), (err) => {
             assert.equal(err.kind, 'server_error', `${name}: ${err.message}`);
             assert.equal(err.status, 200, name);
             return true;

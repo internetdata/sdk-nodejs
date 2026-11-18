@@ -11,6 +11,7 @@ import { createServer } from 'node:http';
 import { test } from 'node:test';
 
 import { DEFAULT_BASE_URL, InternetData, InternetDataError, isBogon } from '../dist/index.js';
+import { withoutBackoff } from './backoff.mjs';
 
 const data = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8'));
 
@@ -633,16 +634,15 @@ test('a 2xx a lookup cannot read is a retried server_error carrying its status',
             wrongType: body(JSON.stringify(wrongType)),
             noMembers: body(JSON.stringify(noMembers)),
         };
-        // Concurrently, since each sits out the retries' backoff.
-        await Promise.all(Object.entries(replies).map(async ([kind, reply]) => {
+        for (const [kind, reply] of Object.entries(replies)) {
             const c = rawClient(reply);
-            await assert.rejects(() => call(c.client), (err) => {
+            await assert.rejects(() => withoutBackoff(() => call(c.client)), (err) => {
                 assert.equal(err.kind, 'server_error', `${name} ${kind}: ${err.message}`);
                 assert.equal(err.status, 200, `${name} ${kind}`);
                 return true;
             });
             assert.equal(c.calls.length, 3, `${name} ${kind} is retried`);
-        }));
+        }
     }
 });
 
