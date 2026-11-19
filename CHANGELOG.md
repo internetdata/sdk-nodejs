@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.14.1 - 2026-11-19
+
+### Fixes
+
+- Cache a spent trial's or a reached cap's answer for a minute at most ([`4ed93a9`](https://github.com/internetdata/sdk-nodejs/commit/4ed93a9f8f61cf00cc0ae26479f091c84e1bfd8a))
+
 ## 2.14.0 - 2026-11-18
 
 ### Features
