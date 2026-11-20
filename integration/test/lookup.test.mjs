@@ -163,8 +163,8 @@ test("the CI key's lookup is a paid one or Unlimited's, and says which", { skip:
     assert.ok(sent.length > 0 && sent.every((f) => f.carriedKey), 'the key never reached the wire');
     assert.equal(result.ip, PROBE);
     assert.equal(typeof result.trialExpired, 'boolean', 'a free-plan key answers trial_expired');
-    // The organization's first 100 lookups of the UTC day are answered in full,
-    // and the rest as Unlimited's: which half a run sees depends on the day.
+    // The organization's trial is answered in full, and the rest as Unlimited's:
+    // which half a run sees depends on how much of the trial is left.
     assert.equal('is_vpn' in result.raw, !result.trialExpired, 'is_vpn is served exactly while the trial lasts');
     assert.equal('isVpn' in result, !result.trialExpired);
 });

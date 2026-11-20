@@ -96,8 +96,8 @@ export interface DownloadOptions {
 
 export interface Options {
     /**
-     * Your API key. Without one a lookup is on Unlimited, the free plan, limited
-     * per address per minute, and no `Authorization` header is sent at all. The
+     * Your API key. Without one a lookup is on Unlimited, the free plan, with no
+     * daily or monthly cap, and no `Authorization` header is sent at all. The
      * database calls need a key carrying the `db.download` scope. A batch needs
      * a key on a paid plan.
      */

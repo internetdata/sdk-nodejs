@@ -570,7 +570,7 @@ test('a per-call timeoutMs applies to each attempt', async () => {
 // Retry-After must not be waited out after the last attempt.
 test('a lookup Retry-After is not waited out when no retry follows', async () => {
     const fetch = async () => Response.json(
-        { error: 'per-minute limit for Unlimited lookups exceeded' },
+        { error: 'rate limit for Unlimited lookups exceeded' },
         { status: 429, headers: { 'retry-after': '3' } },
     );
     // One retry waits the header once, then p-retry's own 1 s backoff.

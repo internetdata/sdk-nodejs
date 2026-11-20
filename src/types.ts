@@ -76,8 +76,8 @@ export interface Result {
     isDnsResolver: boolean;
     isBittorrent: boolean;
     /**
-     * On answers to a key on the free plan only: `false` while the day's trial of
-     * every field lasts, `true` once the answer has Unlimited's.
+     * On answers to a key on the free plan only: `false` while its organization's
+     * trial of every field lasts, `true` once the answer has Unlimited's.
      */
     trialExpired?: boolean;
     /**
