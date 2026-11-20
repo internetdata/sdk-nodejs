@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.15.0 - 2026-11-20
+
+### Features
+
+- Read a paid domain answer's hosting, co-hosted domains, home page, redirects and backlinks ([`0f51d9c`](https://github.com/internetdata/sdk-nodejs/commit/0f51d9c33c26dd33561b30299e65dfc35a04acaa))
+- README: the paid domain answer's new members, and usage without a period ([`56d79c8`](https://github.com/internetdata/sdk-nodejs/commit/56d79c88042034e42fac41b6a949f9c1c11dd9ab))
+
 ## 2.14.2 - 2026-11-20
 
 ### Fixes
