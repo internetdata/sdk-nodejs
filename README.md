@@ -55,7 +55,7 @@ console.log(domain.isRegistered);   // true
 console.log(domain.dns?.mx);        // on a paid plan
 ```
 
-Unlimited answers an AS's registration, and whether a domain is registered and which record types it has. A paid plan adds the AS's whois record, prefixes, rank, Tier 1 flag, upstreams, peers, downstreams and hosted domains, and the domain's records, IP ranges and whether it is disposable. Neither lookup is cached or batched, and `lookup` refuses an AS or a domain before sending it.
+Unlimited answers an AS's registration, and whether a domain is registered and which record types it has. A paid plan adds the AS's whois record, prefixes, rank, Tier 1 flag, upstreams, peers, downstreams and hosted domains, and the domain's records, IP ranges, whether it is disposable, the network behind each of its addresses, the other domains on its first IPv4 address, what its home page says and links to, and the domains whose home pages redirect or link to it. Neither lookup is cached or batched, and `lookup` refuses an AS or a domain before sending it.
 
 ### Your own address
 
@@ -74,7 +74,7 @@ console.log(ent.usage.requests);    // 580
 console.log(ent.usage.window_end);  // when the allowance resets
 ```
 
-Usage counts against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against the UTC day on the free plan; it is the same number a lookup is gated on. `hard_limit` is null on an uncapped plan, which is not the same as zero.
+Usage counts against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period; it is the same number a lookup is gated on. `hard_limit` is null on an uncapped plan, which is not the same as zero.
 
 ### Batch lookup
 
