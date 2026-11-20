@@ -32,7 +32,7 @@ console.log(result.company.name);       // who the address belongs to
 
 ### With an API key
 
-Every paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records and the detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field, 100 lookups a day. Create a key in the [console](https://app.internetdata.io), then pass it in:
+Every paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records and the detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```js
 const client = new InternetData({ apiKey: process.env.INTERNETDATA_API_KEY });
@@ -121,7 +121,7 @@ const client = new InternetData({ cache: { max: 50_000, ttlMs: 6 * 60 * 60 * 100
 const clientNoCache = new InternetData({ cache: false });
 ```
 
-An answer with `trialExpired` or `capReached` true is cached for a minute at most, so a new day's trial or a raised cap reaches you within a minute.
+An answer with `trialExpired` or `capReached` true is cached for a minute at most, so a renewed trial or a raised cap reaches you within a minute.
 
 ### Private and reserved addresses
 
@@ -328,12 +328,12 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its daily trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
+Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
 
 ```js
 result.isVpn ?? false            // when you only want the flag
 result.isVpn === undefined       // on Unlimited: not in your plan
-result.trialExpired === true     // a free-plan key's daily trial is spent
+result.trialExpired === true     // a free-plan key's trial is spent
 result.capReached === true       // a paid key is past its overage cap
 ```
 
