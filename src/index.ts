@@ -23,5 +23,6 @@ export type {
     ProxyDetail, PubproxyDetail, CarrierDetail, SatelliteDetail, SshDetail, SmtpDetail, WebDetail,
     DnsResolverDetail, BitTorrentDetail, Location, Asn, Company, AbuseContact, Whois, Rwhois, HostedDomains,
     AsnPrefix, DomainDns, DnsAddressRecord, DnsMxRecord, DnsNsRecord, DnsCnameRecord, DomainIpRanges,
-    DomainIpRange, DisposableDetail, Entitlement, EntitlementApikey, EntitlementPlan, EntitlementUsage,
+    DomainIpRange, DisposableDetail, DomainHost, CohostedDomains, DomainWeb, DomainWebLinks, DomainRedirects,
+    DomainBacklinks, Entitlement, EntitlementApikey, EntitlementPlan, EntitlementUsage,
 } from './types.js';

@@ -40,6 +40,12 @@ export const DNS_NS_RECORD_MEMBERS = ['host', 'last_seen'] as const;
 export const DNS_CNAME_RECORD_MEMBERS = ['target', 'last_seen'] as const;
 export const DOMAIN_IP_RANGES_MEMBERS = ['domain', 'redirects_to', 'total', 'ipv4', 'ranges'] as const;
 export const DOMAIN_IP_RANGE_MEMBERS = ['range', 'name', 'country'] as const;
+export const DOMAIN_HOST_MEMBERS = ['ip', 'asn'] as const;
+export const COHOSTED_DOMAINS_MEMBERS = ['ip', 'total', 'domains'] as const;
+export const DOMAIN_WEB_MEMBERS = ['url', 'title', 'description', 'last_seen', 'links'] as const;
+export const DOMAIN_WEB_LINKS_MEMBERS = ['total', 'hosts'] as const;
+export const DOMAIN_REDIRECTS_MEMBERS = ['total', 'domains'] as const;
+export const DOMAIN_BACKLINKS_MEMBERS = ['total', 'domains'] as const;
 export const BATCH_MEMBERS = ['results', 'errors'] as const;
 export const BATCH_ERROR_MEMBERS = ['status', 'error'] as const;
 export const ENTITLEMENT_MEMBERS = ['org_id', 'apikey', 'plan', 'usage'] as const;
@@ -160,7 +166,8 @@ export const ASN_PREFIX_TYPES: Record<string, Kind> = {
 };
 export const DOMAIN_LOOKUP_TYPES: Record<string, Kind> = {
     domain: 'string', is_registered: FLAG, is_disposable: FLAG, has_a: FLAG, has_aaaa: FLAG, has_mx: FLAG,
-    has_ns: FLAG, has_cname: FLAG, dns: 'object', ip_ranges: 'object', disposable: 'object', trial_expired: FLAG,
+    has_ns: FLAG, has_cname: FLAG, dns: 'object', ip_ranges: 'object', disposable: 'object', hosting: 'array',
+    cohosted_domains: 'object', web: 'object', redirects: 'object', backlinks: 'object', trial_expired: FLAG,
     cap_reached: FLAG,
 };
 export const DOMAIN_DNS_TYPES: Record<string, Kind> = {
@@ -178,6 +185,14 @@ export const DOMAIN_IP_RANGES_TYPES: Record<string, Kind> = {
 export const DOMAIN_IP_RANGE_TYPES: Record<string, Kind> = {
     range: 'string', name: 'string', country: 'string',
 };
+export const DOMAIN_HOST_TYPES: Record<string, Kind> = { ip: 'string', asn: 'object' };
+export const COHOSTED_DOMAINS_TYPES: Record<string, Kind> = { ip: 'string', total: 'integer', domains: 'array' };
+export const DOMAIN_WEB_TYPES: Record<string, Kind> = {
+    url: 'string', title: 'string', description: 'string', last_seen: 'string', links: 'object',
+};
+export const DOMAIN_WEB_LINKS_TYPES: Record<string, Kind> = { total: 'integer', hosts: 'array' };
+export const DOMAIN_REDIRECTS_TYPES: Record<string, Kind> = { total: 'integer', domains: 'array' };
+export const DOMAIN_BACKLINKS_TYPES: Record<string, Kind> = { total: 'integer', domains: 'array' };
 export const DISPOSABLE_DETAIL_TYPES: Record<string, Kind> = {
     confidence: 'string', providers: 'array', first_seen: 'string', last_seen: 'string',
 };
@@ -338,7 +353,18 @@ export function isDomainLookup(data: unknown): boolean {
         && optional(data['ip_ranges'], (ranges) => typed(ranges, DOMAIN_IP_RANGES_MEMBERS, DOMAIN_IP_RANGES_TYPES)
             && every(ranges['ranges'], (r) => typed(r, DOMAIN_IP_RANGE_MEMBERS, DOMAIN_IP_RANGE_TYPES)))
         && optional(data['disposable'], (d) => typed(d, [], DISPOSABLE_DETAIL_TYPES)
-            && lists(d, 'providers', isString));
+            && lists(d, 'providers', isString))
+        && optional(data['hosting'], (hosting) => every(hosting, (h) => typed(h, DOMAIN_HOST_MEMBERS, DOMAIN_HOST_TYPES)
+            && typed(h['asn'], ASN_MEMBERS, ASN_TYPES)))
+        && optional(data['cohosted_domains'], (c) => typed(c, COHOSTED_DOMAINS_MEMBERS, COHOSTED_DOMAINS_TYPES)
+            && every(c['domains'], isString))
+        && optional(data['web'], (web) => typed(web, DOMAIN_WEB_MEMBERS, DOMAIN_WEB_TYPES)
+            && typed(web['links'], DOMAIN_WEB_LINKS_MEMBERS, DOMAIN_WEB_LINKS_TYPES)
+            && every((web['links'] as Record<string, unknown>)['hosts'], isString))
+        && optional(data['redirects'], (r) => typed(r, DOMAIN_REDIRECTS_MEMBERS, DOMAIN_REDIRECTS_TYPES)
+            && every(r['domains'], isString))
+        && optional(data['backlinks'], (b) => typed(b, DOMAIN_BACKLINKS_MEMBERS, DOMAIN_BACKLINKS_TYPES)
+            && every(b['domains'], isString));
 }
 
 /** Both maps present. An entry in either is judged on its own, as that address's answer. */

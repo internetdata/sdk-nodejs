@@ -725,6 +725,22 @@ const PAID = data.lookup.find((c) => c.name === 'paid-services').body;
 const ASN_PAID = data.lookup.find((c) => c.name === 'asn-paid-answer').body;
 const DOMAIN_PAID = data.lookup.find((c) => c.name === 'domain-paid-answer').body;
 
+// A paid domain answer's hosting, co-hosted domains, home page, redirects and
+// backlinks come back on their camelCase names, and an Unlimited answer has none.
+test('a paid domain answer carries its hosting, home page and linking domains; Unlimited none', async () => {
+    const paid = await rawClient(body(JSON.stringify(DOMAIN_PAID))).client.lookupDomain('example.com');
+    assert.deepEqual(paid.hosting, DOMAIN_PAID.hosting);
+    assert.equal(paid.hosting[1].asn.prefix, '2001:db8::/32');
+    assert.deepEqual(paid.cohostedDomains, DOMAIN_PAID.cohosted_domains);
+    assert.deepEqual(paid.web, DOMAIN_PAID.web);
+    assert.deepEqual(paid.redirects, DOMAIN_PAID.redirects);
+    assert.deepEqual(paid.backlinks, DOMAIN_PAID.backlinks);
+    const free = await rawClient(body(JSON.stringify(DOMAIN))).client.lookupDomain('example.com');
+    for (const member of ['hosting', 'cohostedDomains', 'web', 'redirects', 'backlinks']) {
+        assert.equal(member in free, false, member);
+    }
+});
+
 // A member of the wrong type, at any depth, a numeric string or a null where the
 // spec allows none included, is unreadable.
 test('a member of the wrong type is a retried server_error carrying its status', async () => {
@@ -785,6 +801,37 @@ test('a member of the wrong type is a retried server_error carrying its status',
         'disposable providers of [1]': [domain, {
             ...DOMAIN_PAID, disposable: { confidence: 'high', providers: [1], first_seen: '', last_seen: '' },
         }],
+        'hosting as {}': [domain, { ...DOMAIN_PAID, hosting: {} }],
+        'hosting of [null]': [domain, { ...DOMAIN_PAID, hosting: [null] }],
+        'a hosting entry without asn': [domain, { ...DOMAIN_PAID, hosting: [without(DOMAIN_PAID.hosting[0], 'asn')] }],
+        'a hosting asn of "64496"': [domain, {
+            ...DOMAIN_PAID, hosting: [{ ...DOMAIN_PAID.hosting[0], asn: { ...DOMAIN_PAID.hosting[0].asn, asn: '64496' } }],
+        }],
+        'a hosting asn without prefix': [domain, {
+            ...DOMAIN_PAID, hosting: [{ ...DOMAIN_PAID.hosting[0], asn: without(DOMAIN_PAID.hosting[0].asn, 'prefix') }],
+        }],
+        'a cohosted_domains total of "3"': [domain, {
+            ...DOMAIN_PAID, cohosted_domains: { ...DOMAIN_PAID.cohosted_domains, total: '3' },
+        }],
+        'cohosted_domains without ip': [domain, { ...DOMAIN_PAID, cohosted_domains: without(DOMAIN_PAID.cohosted_domains, 'ip') }],
+        'cohosted domains of [1]': [domain, {
+            ...DOMAIN_PAID, cohosted_domains: { ...DOMAIN_PAID.cohosted_domains, domains: [1] },
+        }],
+        'web as []': [domain, { ...DOMAIN_PAID, web: [] }],
+        'web without last_seen': [domain, { ...DOMAIN_PAID, web: without(DOMAIN_PAID.web, 'last_seen') }],
+        'a web title of null': [domain, { ...DOMAIN_PAID, web: { ...DOMAIN_PAID.web, title: null } }],
+        'web links without hosts': [domain, {
+            ...DOMAIN_PAID, web: { ...DOMAIN_PAID.web, links: without(DOMAIN_PAID.web.links, 'hosts') },
+        }],
+        'web link hosts of [1]': [domain, {
+            ...DOMAIN_PAID, web: { ...DOMAIN_PAID.web, links: { ...DOMAIN_PAID.web.links, hosts: [1] } },
+        }],
+        'a redirects total of 1.5': [domain, { ...DOMAIN_PAID, redirects: { ...DOMAIN_PAID.redirects, total: 1.5 } }],
+        'redirects without domains': [domain, { ...DOMAIN_PAID, redirects: without(DOMAIN_PAID.redirects, 'domains') }],
+        'backlinks domains of [null]': [domain, {
+            ...DOMAIN_PAID, backlinks: { ...DOMAIN_PAID.backlinks, domains: [null] },
+        }],
+        'backlinks as "3"': [domain, { ...DOMAIN_PAID, backlinks: '3' }],
         'requests of "5"': [ent, { ...ENTITLEMENT, usage: { ...ENTITLEMENT.usage, requests: '5' } }],
         'a hard_limit of "5"': [ent, { ...ENTITLEMENT, usage: { ...ENTITLEMENT.usage, hard_limit: '5' } }],
         'a tier of 1': [ent, { ...ENTITLEMENT, plan: { key: 'max', name: 'Max', tier: 1 } }],
@@ -834,6 +881,9 @@ test('each checked lookup member list is every required member of its generated 
         DnsAddressRecord: shapes.DNS_ADDRESS_RECORD_MEMBERS, DnsMxRecord: shapes.DNS_MX_RECORD_MEMBERS,
         DnsNsRecord: shapes.DNS_NS_RECORD_MEMBERS, DnsCnameRecord: shapes.DNS_CNAME_RECORD_MEMBERS,
         DomainIpRanges: shapes.DOMAIN_IP_RANGES_MEMBERS, DomainIpRange: shapes.DOMAIN_IP_RANGE_MEMBERS,
+        DomainHost: shapes.DOMAIN_HOST_MEMBERS, CohostedDomains: shapes.COHOSTED_DOMAINS_MEMBERS,
+        DomainWeb: shapes.DOMAIN_WEB_MEMBERS, DomainWebLinks: shapes.DOMAIN_WEB_LINKS_MEMBERS,
+        DomainRedirects: shapes.DOMAIN_REDIRECTS_MEMBERS, DomainBacklinks: shapes.DOMAIN_BACKLINKS_MEMBERS,
         BatchLookupResponse: shapes.BATCH_MEMBERS,
         BatchLookupError: shapes.BATCH_ERROR_MEMBERS, Entitlement: shapes.ENTITLEMENT_MEMBERS,
         EntitlementApikey: shapes.ENTITLEMENT_APIKEY_MEMBERS, EntitlementPlan: shapes.ENTITLEMENT_PLAN_MEMBERS,
@@ -868,6 +918,9 @@ test('each lookup type table covers every member of its generated type', () => {
         DnsMxRecord: shapes.DNS_MX_RECORD_TYPES, DnsNsRecord: shapes.DNS_NS_RECORD_TYPES,
         DnsCnameRecord: shapes.DNS_CNAME_RECORD_TYPES, DomainIpRanges: shapes.DOMAIN_IP_RANGES_TYPES,
         DomainIpRange: shapes.DOMAIN_IP_RANGE_TYPES, DisposableDetail: shapes.DISPOSABLE_DETAIL_TYPES,
+        DomainHost: shapes.DOMAIN_HOST_TYPES, CohostedDomains: shapes.COHOSTED_DOMAINS_TYPES,
+        DomainWeb: shapes.DOMAIN_WEB_TYPES, DomainWebLinks: shapes.DOMAIN_WEB_LINKS_TYPES,
+        DomainRedirects: shapes.DOMAIN_REDIRECTS_TYPES, DomainBacklinks: shapes.DOMAIN_BACKLINKS_TYPES,
         BatchLookupError: shapes.BATCH_ERROR_TYPES, Entitlement: shapes.ENTITLEMENT_TYPES,
         EntitlementApikey: shapes.ENTITLEMENT_APIKEY_TYPES, EntitlementPlan: shapes.ENTITLEMENT_PLAN_TYPES,
         EntitlementUsage: shapes.ENTITLEMENT_USAGE_TYPES,
