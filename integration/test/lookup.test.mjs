@@ -32,7 +32,7 @@ const FLAGS = [
 ];
 // Paid plans and the trial only: absent from an Unlimited answer.
 const PAID = ['is_vpn', 'is_hosting', 'vpn', 'hosting', 'whois', 'rwhois', 'hosted_domains'];
-const PAID_IN = { location: ['city', 'latitude'], asn: ['rpki_status'], company: ['type'], abuse: ['phone'] };
+const PAID_IN = { location: ['city', 'latitude'], company: ['type'], abuse: ['phone'] };
 
 const camel = (s) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 
