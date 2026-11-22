@@ -17,7 +17,7 @@ Requires Node.js 22 or newer. TypeScript types are included.
 
 ## Usage
 
-**No API key needed to start.** Unlimited, the free plan, answers Tor, relay, anycast, carrier, satellite and the five service flags (SSH, SMTP, web, DNS resolver and BitTorrent), reverse DNS, country-level `location`, `asn`, the company's name and domain and the abuse email, with no daily or monthly cap, with a key or without one.
+**No API key needed to start.** Unlimited, the free plan, answers Tor, relay, bot, anycast, carrier, satellite and the five service flags (SSH, SMTP, web, DNS resolver and BitTorrent), reverse DNS, country-level `location`, `asn`, the company's name and domain and the abuse email, with no daily or monthly cap, with a key or without one.
 
 ```js
 import { InternetData } from '@internetdata/internetdata';
@@ -26,6 +26,7 @@ const client = new InternetData();
 
 const result = await client.lookup('146.70.116.130');
 console.log(result.isTor);              // false
+console.log(result.isBot);              // whether a bot, such as a crawler, uses the address
 console.log(result.location.country);   // the ISO 3166 country code
 console.log(result.company.name);       // who the address belongs to
 ```
@@ -41,6 +42,7 @@ const result = await client.lookup('146.70.116.130');
 console.log(result.isVpn);           // on a paid plan
 console.log(result.vpn?.provider);   // on a paid plan
 console.log(result.location.city);   // on a paid plan
+console.log(result.bot?.agents);     // ['Googlebot'] for a crawler's address, on a paid plan
 ```
 
 ### An AS or a domain
@@ -114,7 +116,7 @@ const result2 = await client.lookup('146.70.116.130');
 console.log(result2.isTor);  // false, no API request, result was cached
 ```
 
-You can change the default cache variables (max size, TTL, etc) on initialization, or even disable it:
+You can change the default cache variables (max size, TTL, etc) on initialization, or even disable it. Each is a whole number from 1:
 
 ```js
 const client = new InternetData({ cache: { max: 50_000, ttlMs: 6 * 60 * 60 * 1000 } });
@@ -328,7 +330,7 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
+Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them and behind `isBot`, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
 
 ```js
 result.isVpn ?? false            // when you only want the flag
