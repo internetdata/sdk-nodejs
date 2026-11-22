@@ -61,6 +61,20 @@ for (const c of data.middleware.conditions) {
     });
 }
 
+// Every answer carries `is_bot`, so a condition on it blocks a bot's address and
+// lets any other through, on any plan.
+test('an isBot condition blocks a bot and passes anything else', async () => {
+    const bot = data.lookup.find((c) => c.name === 'paid-bot').body;
+    for (const [body, blocked] of [[bot, true], [PAID, false], [UNLIMITED, false]]) {
+        const result = await clientServing(body).lookup(body.ip);
+        assert.equal(matchesCondition({ isBot: true }, result), blocked, body.ip);
+        assert.deepEqual(missingMembers({ isBot: true }, result), [], body.ip);
+    }
+    const bogon = await new InternetData().lookup('10.0.0.1');
+    assert.equal(matchesCondition({ isBot: true }, bogon), false);
+    assert.deepEqual(missingMembers({ isBot: true }, bogon), []);
+});
+
 for (const c of data.middleware.invalidConditions) {
     test(`invalid condition refused: ${c.name}`, () => {
         assert.throws(

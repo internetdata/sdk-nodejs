@@ -1,22 +1,42 @@
 import type {
-    AbuseContact, Asn, AsnHostedDomains, AsnLookupResponse, AsnPrefix, BitTorrentDetail, CarrierDetail, ClassDetail, Company,
+    AbuseContact, Asn as WireAsn, AsnHostedDomains, AsnLookupResponse, AsnPrefix, BitTorrentDetail, BotDetail,
+    CarrierDetail, ClassDetail, Company,
     Database, DatabaseFormat, DatabaseMetadata, DatabaseMetadataColumn, DatabaseVersion, DbChecksums,
     CohostedDomains, DisposableDetail, DnsAddressRecord, DnsCnameRecord, DnsMxRecord, DnsNsRecord, DnsResolverDetail,
-    DomainBacklinks, DomainDns, DomainHost, DomainIpRange, DomainIpRanges, DomainLookupResponse, DomainRedirects,
+    DomainBacklinks, DomainDns, DomainHost as WireDomainHost, DomainIpRange, DomainIpRanges,
+    DomainLookupResponse as WireDomainLookupResponse, DomainRedirects,
     DomainWeb, DomainWebLinks, Download, Entitlement, EntitlementApikey,
-    EntitlementPlan, EntitlementUsage, HostedDomains, Location, LookupResponse, ProxyDetail, PubproxyDetail,
-    Rwhois, SatelliteDetail, SmtpDetail, SshDetail, Standing, WebDetail, Whois,
+    EntitlementPlan, EntitlementUsage, HostedDomains, Location, LookupResponse as WireLookupResponse, ProxyDetail,
+    PubproxyDetail, Rwhois, SatelliteDetail, SmtpDetail, SshDetail, Standing, UserAgentVerdict, WebDetail, Whois,
 } from './generated/types.gen.js';
 
 export type {
-    AbuseContact, Asn, AsnHostedDomains, AsnLookupResponse, AsnPrefix, BitTorrentDetail, CarrierDetail, ClassDetail, Company,
+    AbuseContact, AsnHostedDomains, AsnLookupResponse, AsnPrefix, BitTorrentDetail, BotDetail, CarrierDetail,
+    ClassDetail, Company,
     Database, DatabaseFormat, DatabaseMetadata, DatabaseMetadataColumn, DatabaseVersion, DbChecksums,
     CohostedDomains, DisposableDetail, DnsAddressRecord, DnsCnameRecord, DnsMxRecord, DnsNsRecord, DnsResolverDetail,
-    DomainBacklinks, DomainDns, DomainHost, DomainIpRange, DomainIpRanges, DomainLookupResponse, DomainRedirects,
+    DomainBacklinks, DomainDns, DomainIpRange, DomainIpRanges, DomainRedirects,
     DomainWeb, DomainWebLinks, Download, Entitlement, EntitlementApikey,
-    EntitlementPlan, EntitlementUsage, HostedDomains, Location, LookupResponse, ProxyDetail, PubproxyDetail,
-    Rwhois, SatelliteDetail, SmtpDetail, SshDetail, Standing, WebDetail, Whois,
+    EntitlementPlan, EntitlementUsage, HostedDomains, Location, ProxyDetail, PubproxyDetail,
+    Rwhois, SatelliteDetail, SmtpDetail, SshDetail, Standing, UserAgentVerdict, WebDetail, Whois,
 };
+
+// Members every answer carries that a type written out by hand before 2.16.0 lacks.
+// They stay optional in these types, so such code still compiles; the client
+// still refuses an answer without them.
+
+/** The network announcing an address. Every answer carries `country` and `rpki_status`. */
+export type Asn = Omit<WireAsn, 'country' | 'rpki_status'> & Partial<Pick<WireAsn, 'country' | 'rpki_status'>>;
+
+/** A lookup's answer as it came off the wire. Every answer carries `is_bot`. */
+export type LookupResponse = Omit<WireLookupResponse, 'asn' | 'is_bot'> & { asn: Asn }
+    & Partial<Pick<WireLookupResponse, 'is_bot'>>;
+
+/** An address the domain resolves to, and the network announcing it. */
+export type DomainHost = Omit<WireDomainHost, 'asn'> & { asn: Asn };
+
+/** A domain lookup's answer as it came off the wire. */
+export type DomainLookupResponse = Omit<WireDomainLookupResponse, 'hosting'> & { hosting?: DomainHost[] };
 
 /** What a license permits you to do with the data. `null` when there is none. */
 export type LicenseType = Database['license_type'];
@@ -78,6 +98,12 @@ export interface Result {
     isDnsResolver: boolean;
     isBittorrent: boolean;
     /**
+     * In Bot IP: an automated client's address, such as a search engine's or an AI
+     * company's crawler. Every answer carries it, on every plan; `bot` says whose.
+     * Optional in this type only so a `Result` written out by hand still compiles.
+     */
+    isBot?: boolean;
+    /**
      * On answers to a key on the free plan only: `false` while its organization's
      * trial of every field lasts, `true` once the answer has Unlimited's.
      */
@@ -106,6 +132,10 @@ export interface Result {
     web?: WebDetail[];
     dnsResolver?: DnsResolverDetail;
     bittorrent?: BitTorrentDetail;
+    /** Whose bot uses the address, what it does and whether its operator vouches for it. `{}` when `isBot` is false. */
+    bot?: BotDetail;
+    /** Only on an answer to a request that sent a user agent: the agent it names, and whether this address bears it out. */
+    userAgent?: UserAgentVerdict;
 
     location: Location;
     asn: Asn;
@@ -193,8 +223,8 @@ const RESULT_NAMES: Record<keyof LookupResponse, Exclude<keyof Result, 'raw'>> =
     is_resproxy: 'isResproxy', is_dcproxy: 'isDcproxy', is_mobproxy: 'isMobproxy', is_pubproxy: 'isPubproxy',
     is_hosting: 'isHosting', is_cdn: 'isCdn', is_anycast: 'isAnycast', is_carrier: 'isCarrier',
     is_satellite: 'isSatellite', is_ssh: 'isSsh', is_smtp: 'isSmtp', is_web: 'isWeb',
-    is_dns_resolver: 'isDnsResolver', is_bittorrent: 'isBittorrent', trial_expired: 'trialExpired',
-    cap_reached: 'capReached',
+    is_dns_resolver: 'isDnsResolver', is_bittorrent: 'isBittorrent', is_bot: 'isBot', trial_expired: 'trialExpired',
+    cap_reached: 'capReached', bot: 'bot', user_agent: 'userAgent',
     vpn: 'vpn', tor: 'tor', relay: 'relay', resproxy: 'resproxy', dcproxy: 'dcproxy', mobproxy: 'mobproxy',
     pubproxy: 'pubproxy', hosting: 'hosting', cdn: 'cdn', carrier: 'carrier', satellite: 'satellite', ssh: 'ssh',
     smtp: 'smtp', web: 'web', dns_resolver: 'dnsResolver', bittorrent: 'bittorrent', location: 'location',

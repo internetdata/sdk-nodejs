@@ -1,6 +1,5 @@
 import { BOGON_V4, BOGON_V6 } from './bogons.gen.js';
-import type { LookupResponse } from './generated/types.gen.js';
-import { toResult, type Result } from './types.js';
+import { toResult, type LookupResponse, type Result } from './types.js';
 
 /**
  * Whether an address is a bogon: private, loopback, link-local, documentation,
@@ -79,6 +78,7 @@ function bogonAnswer(ip: string): LookupResponse {
         is_web: false,
         is_dns_resolver: false,
         is_bittorrent: false,
+        is_bot: false,
         vpn: {},
         tor: {},
         relay: {},
@@ -95,6 +95,7 @@ function bogonAnswer(ip: string): LookupResponse {
         web: [],
         dns_resolver: {},
         bittorrent: {},
+        bot: {},
         location: {
             continent: '',
             continent_name: '',

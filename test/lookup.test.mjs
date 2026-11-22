@@ -884,7 +884,7 @@ test('each checked lookup member list is every required member of its generated 
         DomainHost: shapes.DOMAIN_HOST_MEMBERS, CohostedDomains: shapes.COHOSTED_DOMAINS_MEMBERS,
         DomainWeb: shapes.DOMAIN_WEB_MEMBERS, DomainWebLinks: shapes.DOMAIN_WEB_LINKS_MEMBERS,
         DomainRedirects: shapes.DOMAIN_REDIRECTS_MEMBERS, DomainBacklinks: shapes.DOMAIN_BACKLINKS_MEMBERS,
-        BatchLookupResponse: shapes.BATCH_MEMBERS,
+        BatchLookupResponse: shapes.BATCH_MEMBERS, UserAgentVerdict: shapes.USER_AGENT_VERDICT_MEMBERS,
         BatchLookupError: shapes.BATCH_ERROR_MEMBERS, Entitlement: shapes.ENTITLEMENT_MEMBERS,
         EntitlementApikey: shapes.ENTITLEMENT_APIKEY_MEMBERS, EntitlementPlan: shapes.ENTITLEMENT_PLAN_MEMBERS,
         EntitlementUsage: shapes.ENTITLEMENT_USAGE_MEMBERS,
@@ -894,7 +894,7 @@ test('each checked lookup member list is every required member of its generated 
     }
     // A detail object requires nothing, which is what lets `{}` stand under a false flag.
     for (const name of ['ClassDetail', 'ProxyDetail', 'PubproxyDetail', 'CarrierDetail', 'SatelliteDetail',
-        'SshDetail', 'SmtpDetail', 'DnsResolverDetail', 'BitTorrentDetail', 'DisposableDetail']) {
+        'SshDetail', 'SmtpDetail', 'DnsResolverDetail', 'BitTorrentDetail', 'DisposableDetail', 'BotDetail']) {
         assert.deepEqual(required(name), [], name);
     }
 });
@@ -910,6 +910,7 @@ test('each lookup type table covers every member of its generated type', () => {
         SshDetail: shapes.SSH_DETAIL_TYPES, SmtpDetail: shapes.SMTP_DETAIL_TYPES,
         WebDetail: shapes.WEB_DETAIL_TYPES,
         DnsResolverDetail: shapes.DNS_RESOLVER_DETAIL_TYPES, BitTorrentDetail: shapes.BITTORRENT_DETAIL_TYPES,
+        BotDetail: shapes.BOT_DETAIL_TYPES, UserAgentVerdict: shapes.USER_AGENT_VERDICT_TYPES,
         Location: shapes.LOCATION_TYPES, Asn: shapes.ASN_TYPES, Company: shapes.COMPANY_TYPES,
         AbuseContact: shapes.ABUSE_CONTACT_TYPES, Whois: shapes.WHOIS_TYPES, Rwhois: shapes.RWHOIS_TYPES,
         HostedDomains: shapes.HOSTED_DOMAINS_TYPES, AsnLookupResponse: shapes.ASN_LOOKUP_TYPES,
