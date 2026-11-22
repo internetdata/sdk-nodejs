@@ -340,7 +340,7 @@ export class InternetData {
      *
      * Usage counts against the ALLOWANCE WINDOW - on a paid plan the
      * anniversary of the subscription, not the calendar month and not the
-     * billing period, and on the free plan the UTC day - and it is the same
+     * billing period, and on the free plan the UTC month - and it is the same
      * number a lookup is gated on. It can lag by a few seconds, because
      * requests are counted in memory and flushed in aggregate.
      *
@@ -831,7 +831,7 @@ function assertFormat(format: DatabaseFormat): void {
     );
 }
 
-// A reduced answer, a spent trial's or a reached cap's, ends with a new UTC day or
+// A reduced answer, a spent trial's or a reached cap's, ends with a new UTC month or
 // a raised cap, so it stays a minute at most rather than the TTL. It is still
 // cached, or a busy process would send every repeat of an address to the API.
 function lifeMs(result: Result, ttlMs: number): number {
