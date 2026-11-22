@@ -2,6 +2,17 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.16.0 - 2026-11-22
+
+### Features
+
+- Read whether a bot uses an address, and whose: isBot and bot ([`3ceae93`](https://github.com/internetdata/sdk-nodejs/commit/3ceae93159b0ae1826ff73b28f813a61977e7b63))
+- README: the bot flag on every plan, and whose bot it is on a paid plan ([`3073391`](https://github.com/internetdata/sdk-nodejs/commit/307339139cb2d8f2a93597654136fac6b6d178d2))
+
+### Fixes
+
+- Refuse a cache TTL or size that is not a whole number from 1 ([`8b58319`](https://github.com/internetdata/sdk-nodejs/commit/8b583191ab4989edc76ef88d44bd76b7f665deb1))
+
 ## 2.15.0 - 2026-11-20
 
 ### Features
