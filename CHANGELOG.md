@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.16.1 - 2026-11-23
+
+### Fixes
+
+- Re-pin the spec to 2026.11.22: whose bot an unverified address names ([`9173f11`](https://github.com/internetdata/sdk-nodejs/commit/9173f117b1cf8c554cf530e1cd3f0bdab4e68a12))
+
 ## 2.16.0 - 2026-11-22
 
 ### Features
