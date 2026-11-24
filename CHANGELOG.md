@@ -2,6 +2,16 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.17.0 - 2026-11-24
+
+### Features
+
+- Match a condition on a list member when any element matches ([`1b3d933`](https://github.com/internetdata/sdk-nodejs/commit/1b3d9338352f6bca26880bf7f52ed6b6e4f00979))
+
+### Fixes
+
+- Read each first and last seen day as a date ([`6b80832`](https://github.com/internetdata/sdk-nodejs/commit/6b808325a9c8b5b5f40fa3f37ceb4c324be687a5))
+
 ## 2.16.1 - 2026-11-23
 
 ### Fixes
