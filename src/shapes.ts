@@ -73,7 +73,7 @@ export const DOWNLOAD_MEMBERS = ['dataset_id', 'format', 'outcome', 'sample', 'o
 // 2.7.4 one was checked as a string alone, so `x`, `tomorrow`, 30 February, 24:00,
 // a time with no offset, `+0500` and a date alone where a date-time is due all came
 // back as served (measured 2026-10-28). The test holds these kinds to the spec's
-// `format`.
+// `format`, which the lookups' first and last seen days carry from 2.17.0.
 type Kind = 'string' | 'integer' | 'number' | 'boolean' | 'object' | 'array' | 'date' | 'date-time';
 
 const FLAG: Kind = 'boolean';
@@ -90,19 +90,19 @@ export const LOOKUP_TYPES: Record<string, Kind> = {
     hosted_domains: 'object', trial_expired: FLAG, cap_reached: FLAG,
 };
 export const CLASS_DETAIL_TYPES: Record<string, Kind> = {
-    provider: 'string', provider_name: 'string', confidence: 'string', last_seen: 'string',
+    provider: 'string', provider_name: 'string', confidence: 'string', last_seen: 'date',
 };
 export const PROXY_DETAIL_TYPES: Record<string, Kind> = {
-    provider: 'string', provider_name: 'string', first_seen: 'string', last_seen: 'string', hits: 'integer',
+    provider: 'string', provider_name: 'string', first_seen: 'date', last_seen: 'date', hits: 'integer',
     hits_days_pct: 'integer', providers_num: 'integer',
 };
 export const PUBPROXY_DETAIL_TYPES: Record<string, Kind> = {
     entry: 'boolean', exit: 'boolean', protocols: 'array', num_ports: 'integer', num_proxies: 'integer',
-    last_seen: 'string', last_usable: 'string',
+    last_seen: 'date', last_usable: 'string',
 };
 export const BOT_DETAIL_TYPES: Record<string, Kind> = {
     provider: 'string', provider_name: 'string', agents: 'array', categories: 'array', verified: 'boolean',
-    identity: 'string', verified_by: 'string', confidence: 'string', first_seen: 'string', last_seen: 'string',
+    identity: 'string', verified_by: 'string', confidence: 'string', first_seen: 'date', last_seen: 'date',
 };
 // `verdict` is a closed list in the spec, read as a string so a value added later comes back as served.
 export const USER_AGENT_VERDICT_TYPES: Record<string, Kind> = { agent: 'string', kind: 'string', verdict: 'string' };
@@ -114,24 +114,24 @@ export const SATELLITE_DETAIL_TYPES: Record<string, Kind> = {
     asn: 'integer', confidence: 'string',
 };
 export const SSH_DETAIL_TYPES: Record<string, Kind> = {
-    port: 'integer', banner: 'string', host_key_fp: 'string', session_ok: 'boolean', first_seen: 'string',
-    last_seen: 'string',
+    port: 'integer', banner: 'string', host_key_fp: 'string', session_ok: 'boolean', first_seen: 'date',
+    last_seen: 'date',
 };
 export const SMTP_DETAIL_TYPES: Record<string, Kind> = {
-    port: 'integer', banner: 'string', session_ok: 'boolean', first_seen: 'string', last_seen: 'string',
+    port: 'integer', banner: 'string', session_ok: 'boolean', first_seen: 'date', last_seen: 'date',
 };
 export const WEB_DETAIL_TYPES: Record<string, Kind> = {
     port: 'integer', tls_ok: 'boolean', session_ok: 'boolean', status_code: 'integer', server: 'string',
     location: 'string', title: 'string', cert_subject_cn: 'string', cert_subject_o: 'string',
-    cert_issuer_dn: 'string', cert_browser_trusted: 'boolean', tls_version: 'string', first_seen: 'string',
-    last_seen: 'string',
+    cert_issuer_dn: 'string', cert_browser_trusted: 'boolean', tls_version: 'string', first_seen: 'date',
+    last_seen: 'date',
 };
 export const DNS_RESOLVER_DETAIL_TYPES: Record<string, Kind> = {
     port: 'integer', recursion_available: 'boolean', rcode: 'integer', answer_correct: 'boolean',
-    first_seen: 'string', last_seen: 'string',
+    first_seen: 'date', last_seen: 'date',
 };
 export const BITTORRENT_DETAIL_TYPES: Record<string, Kind> = {
-    verified: 'boolean', id_matches_ip: 'boolean', first_seen: 'string', last_seen: 'string',
+    verified: 'boolean', id_matches_ip: 'boolean', first_seen: 'date', last_seen: 'date',
     last_reachable: 'string', days_seen: 'integer', num_ports: 'integer', peak_num_ports: 'integer',
     indexer: 'boolean', clients: 'array',
 };
@@ -169,7 +169,7 @@ export const ASN_LOOKUP_TYPES: Record<string, Kind> = {
     cap_reached: FLAG,
 };
 export const ASN_PREFIX_TYPES: Record<string, Kind> = {
-    prefix: 'string', peer_count: 'integer', rpki_status: 'string', first_seen: 'string', country: 'string',
+    prefix: 'string', peer_count: 'integer', rpki_status: 'string', first_seen: 'date', country: 'string',
     size: 'integer', other_origins: 'array',
 };
 export const DOMAIN_LOOKUP_TYPES: Record<string, Kind> = {
@@ -181,12 +181,12 @@ export const DOMAIN_LOOKUP_TYPES: Record<string, Kind> = {
 export const DOMAIN_DNS_TYPES: Record<string, Kind> = {
     a: 'array', aaaa: 'array', mx: 'array', ns: 'array', cname: 'array',
 };
-export const DNS_ADDRESS_RECORD_TYPES: Record<string, Kind> = { ip: 'string', last_seen: 'string' };
+export const DNS_ADDRESS_RECORD_TYPES: Record<string, Kind> = { ip: 'string', last_seen: 'date' };
 export const DNS_MX_RECORD_TYPES: Record<string, Kind> = {
-    priority: 'integer', host: 'string', last_seen: 'string',
+    priority: 'integer', host: 'string', last_seen: 'date',
 };
-export const DNS_NS_RECORD_TYPES: Record<string, Kind> = { host: 'string', last_seen: 'string' };
-export const DNS_CNAME_RECORD_TYPES: Record<string, Kind> = { target: 'string', last_seen: 'string' };
+export const DNS_NS_RECORD_TYPES: Record<string, Kind> = { host: 'string', last_seen: 'date' };
+export const DNS_CNAME_RECORD_TYPES: Record<string, Kind> = { target: 'string', last_seen: 'date' };
 export const DOMAIN_IP_RANGES_TYPES: Record<string, Kind> = {
     domain: 'string', redirects_to: 'string', total: 'integer', ipv4: 'integer', ranges: 'array',
 };
@@ -202,7 +202,7 @@ export const DOMAIN_WEB_LINKS_TYPES: Record<string, Kind> = { total: 'integer', 
 export const DOMAIN_REDIRECTS_TYPES: Record<string, Kind> = { total: 'integer', domains: 'array' };
 export const DOMAIN_BACKLINKS_TYPES: Record<string, Kind> = { total: 'integer', domains: 'array' };
 export const DISPOSABLE_DETAIL_TYPES: Record<string, Kind> = {
-    confidence: 'string', providers: 'array', first_seen: 'string', last_seen: 'string',
+    confidence: 'string', providers: 'array', first_seen: 'date', last_seen: 'date',
 };
 export const BATCH_ERROR_TYPES: Record<string, Kind> = { status: 'integer', error: 'string' };
 export const ENTITLEMENT_TYPES: Record<string, Kind> = {

@@ -235,7 +235,7 @@ test('each date kind is the format the spec names', async () => {
         Database: shapes.DATABASE_TYPES, DatabaseVersion: shapes.DATABASE_VERSION_TYPES,
         DatabaseMetadata: shapes.DATABASE_METADATA_TYPES, DatabaseMetadataColumn: shapes.COLUMN_TYPES,
         Download: shapes.DOWNLOAD_TYPES, LookupResponse: shapes.LOOKUP_TYPES, ClassDetail: shapes.CLASS_DETAIL_TYPES,
-        ProxyDetail: shapes.PROXY_DETAIL_TYPES, PubproxyDetail: shapes.PUBPROXY_DETAIL_TYPES,
+        ProxyDetail: shapes.PROXY_DETAIL_TYPES, PubproxyDetail: shapes.PUBPROXY_DETAIL_TYPES, BotDetail: shapes.BOT_DETAIL_TYPES,
         CarrierDetail: shapes.CARRIER_DETAIL_TYPES, SatelliteDetail: shapes.SATELLITE_DETAIL_TYPES,
         SshDetail: shapes.SSH_DETAIL_TYPES, SmtpDetail: shapes.SMTP_DETAIL_TYPES, WebDetail: shapes.WEB_DETAIL_TYPES,
         DnsResolverDetail: shapes.DNS_RESOLVER_DETAIL_TYPES, BitTorrentDetail: shapes.BITTORRENT_DETAIL_TYPES,
@@ -266,7 +266,7 @@ test('each date kind is the format the spec names', async () => {
     }
     const covered = [...formats.keys()].filter((at) => tables[at.split('.')[0]] !== undefined);
     assert.equal(kinds.size, covered.length);
-    assert.equal(kinds.size, 9);
+    assert.equal(kinds.size, 32);
 });
 
 test('a readable answer still comes back', async () => {

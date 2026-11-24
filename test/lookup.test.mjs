@@ -859,6 +859,76 @@ test('a member of the wrong type is a retried server_error carrying its status',
     assert.equal(c.calls.length, 1);
 });
 
+// A first or last seen day is the spec's `format: date`, so one that is no
+// RFC 3339 full-date on a real day is unreadable, wherever it sits; it stays a
+// string. DomainWeb's `last_seen`, BitTorrent's `last_reachable` and Public Proxy
+// IP's `last_usable` may be empty, so they are not days.
+test('a seen day that is no full-date is a retried server_error', async () => {
+    const day = { first_seen: '2026-06-01', last_seen: '2026-11-12' };
+    const lookupBodies = [
+        data.lookup.find((c) => c.name === 'paid-full-shape').body,
+        data.lookup.find((c) => c.name === 'paid-services').body,
+        {
+            ...PAID, ip: IP, is_resproxy: true, is_pubproxy: true, is_ssh: true, is_smtp: true,
+            resproxy: { provider: 'p', provider_name: 'P', ...day, hits: 7, hits_days_pct: 42, providers_num: 2 },
+            pubproxy: {
+                entry: true, exit: false, protocols: ['socks5'], num_ports: 1, num_proxies: 0, last_seen: '2026-11-12',
+                last_usable: '',
+            },
+            ssh: { port: 22, banner: 'SSH-2.0-OpenSSH_9.6', host_key_fp: 'SHA256:x', session_ok: true, ...day },
+            smtp: { port: 25, banner: '220 mx ESMTP', session_ok: true, ...day },
+        },
+    ];
+    const domainBody = {
+        ...DOMAIN_PAID, is_disposable: true,
+        disposable: { confidence: 'high', providers: ['p'], ...day },
+    };
+    const calls = [
+        ...lookupBodies.map((answer) => [(c) => c.lookup(answer.ip), answer]),
+        [(c) => c.lookupAsn(9009), ASN_PAID],
+        [(c) => c.lookupDomain('example.com'), domainBody],
+    ];
+    // Each answer reads as served, then with one day at a time made unreadable.
+    const cases = [];
+    for (const [call, answer] of calls) {
+        const got = await call(rawClient(body(JSON.stringify(answer))).client);
+        assert.deepEqual(got.raw, answer);
+        const paths = [];
+        const walk = (value, path) => {
+            if (Array.isArray(value)) {
+                value.forEach((element, i) => walk(element, [...path, i]));
+            } else if (value !== null && typeof value === 'object') {
+                for (const [member, inner] of Object.entries(value)) {
+                    const skip = member === 'last_seen' && path.length === 1 && path[0] === 'web' && !Array.isArray(answer.web);
+                    if ((member === 'first_seen' || member === 'last_seen') && !skip) {
+                        paths.push([...path, member]);
+                    } else {
+                        walk(inner, [...path, member]);
+                    }
+                }
+            }
+        };
+        walk(answer, []);
+        for (const path of paths) {
+            for (const bad of ['x', '', '2026-02-30', '2026-11-5', '2026-11-05T00:00:00Z', '2026-11-05\n']) {
+                const copy = structuredClone(answer);
+                path.slice(0, -1).reduce((o, k) => o[k], copy)[path.at(-1)] = bad;
+                cases.push([`${path.join('.')} of ${JSON.stringify(bad)}`, call, copy]);
+            }
+        }
+    }
+    assert.equal(new Set(cases.map(([name]) => name.split(' of ')[0])).size >= 20, true);
+    await withoutBackoff(() => Promise.all(cases.map(async ([name, call, answer]) => {
+        const c = rawClient(body(JSON.stringify(answer)));
+        await assert.rejects(() => call(c.client), (err) => {
+            assert.equal(err.kind, 'server_error', `${name}: ${err.message}`);
+            assert.equal(err.status, 200, name);
+            return true;
+        });
+        assert.equal(c.calls.length, 3, `${name} is retried`);
+    })));
+});
+
 const shapes = await import('../dist/shapes.js');
 const GENERATED = readFileSync(new URL('../src/generated/types.gen.ts', import.meta.url), 'utf8');
 
