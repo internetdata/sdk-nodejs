@@ -17,10 +17,15 @@ type LeafCondition<T> =
             : T extends boolean ? boolean
                 : never;
 
+// A member the answer holds as a list (`web`'s rows, `pubproxy.protocols`) takes
+// a condition on one element, which matches when any element does.
+type MemberCondition<V> =
+    V extends readonly (infer E)[] ? MemberCondition<NonNullable<E>>
+        : V extends object ? ConditionOn<V>
+            : LeafCondition<V> | false | null;
+
 type ConditionOn<T> = {
-    [K in keyof T]?: NonNullable<T[K]> extends object
-        ? ConditionOn<NonNullable<T[K]>>
-        : LeafCondition<NonNullable<T[K]>> | false | null;
+    [K in keyof T]?: MemberCondition<NonNullable<T[K]>>;
 };
 
 /**
@@ -37,7 +42,10 @@ type ConditionOn<T> = {
  * { isResproxy: true, resproxy: { hits: { gte: 5 } } }
  * ```
  *
- * A list means OR, so any one of its entries blocking is enough.
+ * A list means OR, so any one of its entries blocking is enough. A member the
+ * answer holds as a list matches when any one element does, every member of an
+ * object term on the same element: `{ web: { port: 443 } }`,
+ * `{ pubproxy: { protocols: 'socks5' } }`.
  */
 export type BlockCondition = ConditionOn<Omit<Result, 'raw'>>;
 
@@ -140,6 +148,10 @@ function matchesObject(
 }
 
 function matchesValue(want: unknown, got: unknown): boolean {
+    // Through 2.16 a term on a list member compared the list itself, so it never matched.
+    if (Array.isArray(got)) {
+        return got.some((element) => matchesValue(want, element));
+    }
     if (Array.isArray(want)) {
         return want.some((entry) => matchesValue(entry, got));
     }
