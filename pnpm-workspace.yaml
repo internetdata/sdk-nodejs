@@ -1,4 +1,6 @@
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - "@mslmio/*"   # our scope on public npm
 # Nothing third-party belongs in a minimumReleaseAgeExclude: a cooldown failure is met
 # by lowering the window for that one install and restoring it, and the lockfile then
 # carries the resolution, so --frozen-lockfile needs no exception.
