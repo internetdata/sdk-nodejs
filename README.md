@@ -33,7 +33,7 @@ console.log(result.company.name);       // who the address belongs to
 
 ### With an API key
 
-Every paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records and the detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
+A paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records and the detail behind each flag. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```js
 const client = new InternetData({ apiKey: process.env.INTERNETDATA_API_KEY });
@@ -70,8 +70,8 @@ console.log(result.ip);   // the address we saw this call come from
 
 ```js
 const ent = await client.myEntitlement();
-console.log(ent.plan.key);          // starter
-console.log(ent.plan.name);         // Starter, the name to show
+console.log(ent.plan.key);          // data_4
+console.log(ent.plan.name);         // Data, the name to show
 console.log(ent.usage.requests);    // 580
 console.log(ent.usage.window_end);  // when the allowance resets
 ```
