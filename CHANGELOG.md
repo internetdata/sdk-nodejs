@@ -2,6 +2,18 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.18.0 - 2026-11-25
+
+### Features
+
+- Send a user agent with a lookup, myIp and a batch, and read the verdict it brings back ([`25b9c14`](https://github.com/internetdata/sdk-nodejs/commit/25b9c14343fd2bc8e94a3e28beb2f20ecf19a877))
+- Let a verified crawler through the middleware with allowBots ([`4c2ec97`](https://github.com/internetdata/sdk-nodejs/commit/4c2ec9781982710650b4b4d9e91e658124c93006))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.25: a paid plan's field wording, and the Data plan ([`a436094`](https://github.com/internetdata/sdk-nodejs/commit/a4360945f8d356b2395790b7f9505891eb930230))
+- README: one paid plan, Data; the entitlement example names it ([`fad7fe6`](https://github.com/internetdata/sdk-nodejs/commit/fad7fe6ded87cc82ada47092d45c62f3e03cef8f))
+
 ## 2.17.0 - 2026-11-24
 
 ### Features
