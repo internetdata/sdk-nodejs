@@ -1,7 +1,7 @@
 export { InternetData, DatabaseApi, DEFAULT_BASE_URL } from './client.js';
 export type {
-    BatchOptions, CacheOptions, DownloadDestination, DownloadOptions, DownloadsOptions, DownloadUrlOptions,
-    LookupOptions, Options,
+    BatchOptions, CacheOptions, CallOptions, DownloadDestination, DownloadOptions, DownloadsOptions,
+    DownloadUrlOptions, LookupOptions, Options,
 } from './client.js';
 export { OauthApi } from './oauth.js';
 export type {
@@ -21,7 +21,7 @@ export type {
 export type {
     Result, AsnResult, DomainResult, LookupResponse, AsnLookupResponse, DomainLookupResponse, ClassDetail,
     ProxyDetail, PubproxyDetail, CarrierDetail, SatelliteDetail, SshDetail, SmtpDetail, WebDetail,
-    DnsResolverDetail, BitTorrentDetail, Location, Asn, Company, AbuseContact, Whois, Rwhois, HostedDomains,
+    DnsResolverDetail, BitTorrentDetail, BotDetail, UserAgentVerdict, Location, Asn, Company, AbuseContact, Whois, Rwhois, HostedDomains,
     AsnPrefix, DomainDns, DnsAddressRecord, DnsMxRecord, DnsNsRecord, DnsCnameRecord, DomainIpRanges,
     DomainIpRange, DisposableDetail, DomainHost, CohostedDomains, DomainWeb, DomainWebLinks, DomainRedirects,
     DomainBacklinks, Entitlement, EntitlementApikey, EntitlementPlan, EntitlementUsage,

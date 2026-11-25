@@ -33,7 +33,7 @@ console.log(result.company.name);       // who the address belongs to
 
 ### With an API key
 
-A paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records and the detail behind each flag. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
+A paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records, the detail behind each flag, and `user_agent` for a lookup that sends one. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```js
 const client = new InternetData({ apiKey: process.env.INTERNETDATA_API_KEY });
@@ -65,6 +65,22 @@ Unlimited answers an AS's registration, and whether a domain is registered and w
 const result = await client.myIp();
 console.log(result.ip);   // the address we saw this call come from
 ```
+
+### The visitor's user agent
+
+Pass the `User-Agent` of the request you are deciding on, and on a paid plan or the trial the answer's `userAgent` names the client it claims to be and whether this address bears that out: `verified` (its operator vouches for this address), `spoofed`, `unverifiable` or `not_bot`. A crawler claiming to be Googlebot from an address Google does not vouch for reads `spoofed`:
+
+```js
+const result = await client.lookup('66.249.66.1', { userAgent: req.headers['user-agent'] });
+if (result.userAgent?.verdict === 'verified') {
+    // a crawler its operator vouches for
+}
+
+await client.myIp({ userAgent: 'my-app/1.0' });
+await client.lookupBatch(['66.249.66.1', '45.83.91.1'], { userAgents: { '66.249.66.1': 'Googlebot/2.1' } });
+```
+
+The empty string sends none, and `userAgent` is absent on an answer to a lookup that sent none, on Unlimited and on a private address, which is answered locally. A batch's `userAgents` is keyed by each address as you list it. The cache keeps an address's answer apart for each agent, so the same address with another agent is another request.
 
 ### Your plan and usage
 
@@ -330,7 +346,7 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them and behind `isBot`, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
+Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them and behind `isBot`, `userAgent`, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
 
 ```js
 result.isVpn ?? false            // when you only want the flag
