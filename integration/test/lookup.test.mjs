@@ -26,10 +26,10 @@ const STAGING_API = 'https://api-staging.internetdata.io';
 // A stable hosting address, and the one the README teaches.
 const PROBE = '146.70.116.130';
 
-const FLAGS = [
-    'is_bogon', 'is_tor', 'is_relay', 'is_anycast', 'is_carrier', 'is_satellite', 'is_ssh', 'is_smtp', 'is_web',
-    'is_dns_resolver', 'is_bittorrent',
-];
+const FLAGS = ['is_bogon', 'is_tor', 'is_relay', 'is_anycast'];
+// A paid plan's and the trial's, absent from an Unlimited answer. The seven booleans keep their public type
+// until the next major, so they read false there; `isBot` was already optional and reads undefined.
+const HELD = ['is_carrier', 'is_satellite', 'is_ssh', 'is_smtp', 'is_web', 'is_dns_resolver', 'is_bittorrent'];
 // Paid plans and the trial only: absent from an Unlimited answer.
 const PAID = ['is_vpn', 'is_hosting', 'vpn', 'hosting', 'whois', 'rwhois', 'hosted_domains'];
 const PAID_IN = { location: ['city', 'latitude'], company: ['type'], abuse: ['phone'] };
@@ -63,6 +63,13 @@ function assertUnlimited(result, label) {
         assert.equal(typeof result[camel(flag)], 'boolean', `${label}: ${flag} is required`);
     }
     assert.equal(result.isBogon, false, label);
+    for (const flag of ['is_bot', ...HELD]) {
+        assert.ok(!(flag in result.raw), `${label}: ${flag} is served without a key`);
+    }
+    for (const flag of HELD) {
+        assert.equal(result[camel(flag)], false, `${label}: ${flag} reads false when absent`);
+    }
+    assert.ok(!('isBot' in result), `${label}: is_bot must be absent, not false`);
     for (const member of PAID) {
         assert.ok(!(member in result.raw), `${label}: ${member} is served without a key`);
         assert.ok(!(camel(member) in result), `${label}: ${member} must be absent, not false or empty`);
@@ -167,6 +174,7 @@ test("the CI key's lookup is a paid one or Unlimited's, and says which", { skip:
     // which half a run sees depends on how much of the trial is left.
     assert.equal('is_vpn' in result.raw, !result.trialExpired, 'is_vpn is served exactly while the trial lasts');
     assert.equal('isVpn' in result, !result.trialExpired);
+    assert.equal('is_bot' in result.raw, !result.trialExpired, 'is_bot is served exactly while the trial lasts');
 });
 
 test("the CI key's entitlement names its plan and its usage", { skip: NO_KEY }, async () => {
