@@ -1,4 +1,4 @@
-import type { Result } from '../types.js';
+import { HELD_FLAGS, type Result } from '../types.js';
 
 /**
  * A bound on a numeric member. Every key present must hold, so
@@ -81,10 +81,11 @@ export function missingMembers(
 ): string[] {
     const any = Array.isArray(condition) ? condition : [condition];
     const missing = new Set<string>();
+    const answer = result as unknown as Record<string, unknown>;
+    // A held flag reads false when the API did not send it, so its presence is the wire answer's.
+    const wire = isRecord(answer['raw']) ? answer['raw'] : undefined;
     for (const one of any) {
-        collectMissing(
-            one as Record<string, unknown>, result as unknown as Record<string, unknown>, '', missing,
-        );
+        collectMissing(one as Record<string, unknown>, answer, '', missing, wire);
     }
     return [...missing];
 }
@@ -115,14 +116,14 @@ export function constraintCount(condition: unknown): number {
 
 function collectMissing(
     condition: Record<string, unknown>, value: Record<string, unknown>, prefix: string,
-    missing: Set<string>,
+    missing: Set<string>, wire?: Record<string, unknown>,
 ) {
     for (const [member, want] of Object.entries(condition)) {
         if (constraintCount(want) === 0) {
             continue;
         }
         const path = `${prefix}${member}`;
-        if (!(member in value)) {
+        if (!(member in value) || notSent(member, wire)) {
             missing.add(path);
             continue;
         }
@@ -131,6 +132,11 @@ function collectMissing(
             collectMissing(want, got, `${path}.`, missing);
         }
     }
+}
+
+// The wire is given for the top level alone, where the held flags are.
+function notSent(member: string, wire: Record<string, unknown> | undefined): boolean {
+    return wire !== undefined && Object.hasOwn(HELD_FLAGS, member) && !(HELD_FLAGS[member]! in wire);
 }
 
 function matchesObject(

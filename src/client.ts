@@ -13,7 +13,7 @@ import {
 } from './generated/sdk.gen.js';
 import type {
     AsnLookupResponse, BatchLookupResponse, DatabaseChecksumV2Responses, DatabaseMetadataV2Responses,
-    DomainLookupResponse, Entitlement, ListDatabasesResponses, ListDownloadsResponses, LookupResponse,
+    Entitlement, ListDatabasesResponses, ListDownloadsResponses,
 } from './generated/types.gen.js';
 
 import { bogonResult, isAddress, isBogon, unmapped } from './bogon.js';
@@ -29,7 +29,8 @@ import {
 } from './transport.js';
 import { DATABASE_FORMATS, toAsnResult, toDomainResult, toResult } from './types.js';
 import type {
-    AsnResult, Database, DatabaseFormat, DatabaseMetadata, DbChecksums, DomainResult, Download, Result,
+    AsnResult, Database, DatabaseFormat, DatabaseMetadata, DbChecksums, DomainLookupResponse, DomainResult,
+    Download, LookupResponse, Result,
 } from './types.js';
 
 /**

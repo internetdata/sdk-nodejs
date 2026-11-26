@@ -17,7 +17,7 @@ Requires Node.js 22 or newer. TypeScript types are included.
 
 ## Usage
 
-**No API key needed to start.** Unlimited, the free plan, answers Tor, relay, bot, anycast, carrier, satellite and the five service flags (SSH, SMTP, web, DNS resolver and BitTorrent), reverse DNS, country-level `location`, `asn`, the company's name and domain and the abuse email, with no daily or monthly cap, with a key or without one.
+**No API key needed to start.** Unlimited, the free plan, answers Tor, relay and anycast, reverse DNS, country-level `location`, `asn`, the company's name and domain and the abuse email, with no daily or monthly cap, with a key or without one.
 
 ```js
 import { InternetData } from '@internetdata/internetdata';
@@ -26,14 +26,14 @@ const client = new InternetData();
 
 const result = await client.lookup('146.70.116.130');
 console.log(result.isTor);              // false
-console.log(result.isBot);              // whether a bot, such as a crawler, uses the address
+console.log(result.isAnycast);          // whether it is announced from many places at once
 console.log(result.location.country);   // the ISO 3166 country code
 console.log(result.company.name);       // who the address belongs to
 ```
 
 ### With an API key
 
-A paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn` and the four proxy flags as well, city-level location, the whois records, the detail behind each flag, and `user_agent` for a lookup that sends one. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
+A paid plan answers every field: `is_vpn`, `is_hosting`, `is_cdn`, the four proxy flags, `is_bot`, `is_carrier`, `is_satellite` and the five service flags (SSH, SMTP, web, DNS resolver and BitTorrent) as well, city-level location, the whois records, the detail behind each flag, and `user_agent` for a lookup that sends one. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.internetdata.io), then pass it in:
 
 ```js
 const client = new InternetData({ apiKey: process.env.INTERNETDATA_API_KEY });
@@ -346,7 +346,7 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Unlimited leaves out `isVpn`, `isHosting`, `isCdn` and the four proxy flags, the detail behind them and behind `isBot`, `userAgent`, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no".
+Unlimited leaves out `isVpn`, `isHosting`, `isCdn`, the four proxy flags, `isBot`, `isCarrier`, `isSatellite` and the five service flags, the detail behind them, `userAgent`, and the paid members inside `location`, `asn`, `company` and `abuse`, such as `location.city`; a free-plan key's answer carries `trialExpired`, true once its trial is spent. A paid key's carries `capReached`, true once its organization's overage cap is reached, when the answer has Unlimited's fields and isn't billed. A field your key does not include is `undefined`, which means "not in your plan" rather than "checked, and no". The exceptions are `isCarrier`, `isSatellite` and the five service flags, which stay typed `boolean` until the next major: an answer without one reads `false`, and `result.raw` has the member only when the API sent it.
 
 ```js
 result.isVpn ?? false            // when you only want the flag

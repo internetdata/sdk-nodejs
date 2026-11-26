@@ -25,12 +25,33 @@ export type {
 // They stay optional in these types, so such code still compiles; the client
 // still refuses an answer without them.
 
-/** The network announcing an address. Every answer carries `country` and `rpki_status`. */
-export type Asn = Omit<WireAsn, 'country' | 'rpki_status'> & Partial<Pick<WireAsn, 'country' | 'rpki_status'>>;
+// The seven flags an answer once carried on every plan. `is_bot`, the eighth, was already optional.
+type HeldFlag = 'is_carrier' | 'is_satellite' | 'is_ssh' | 'is_smtp' | 'is_web' | 'is_dns_resolver'
+    | 'is_bittorrent';
 
-/** A lookup's answer as it came off the wire. Every answer carries `is_bot`. */
-export type LookupResponse = Omit<WireLookupResponse, 'asn' | 'is_bot'> & { asn: Asn }
-    & Partial<Pick<WireLookupResponse, 'is_bot'>>;
+/**
+ * The wire's name for each flag a keyless answer no longer carries, by its `Result` name. Their public
+ * types are held, so an absent one reads `false` until the next major; `raw` says which were sent.
+ */
+export const HELD_FLAGS: Readonly<Record<string, HeldFlag>> = {
+    isCarrier: 'is_carrier', isSatellite: 'is_satellite', isSsh: 'is_ssh', isSmtp: 'is_smtp', isWeb: 'is_web',
+    isDnsResolver: 'is_dns_resolver', isBittorrent: 'is_bittorrent',
+};
+
+/**
+ * The network announcing an address. Every answer carries `country` and `rpki_status`. The spec makes
+ * `type` a paid plan's, so an answer may lack it, and it stays a string in this type until the next major.
+ */
+export type Asn = Omit<WireAsn, 'type' | 'country' | 'rpki_status'> & Required<Pick<WireAsn, 'type'>>
+    & Partial<Pick<WireAsn, 'country' | 'rpki_status'>>;
+
+/**
+ * A lookup's answer as it came off the wire. `is_bot` and the seven flags from `is_carrier` to
+ * `is_bittorrent` are on a paid plan or the trial: Unlimited's answer lacks all eight, though the seven
+ * stay booleans in this type until the next major.
+ */
+export type LookupResponse = Omit<WireLookupResponse, 'asn' | 'is_bot' | HeldFlag> & { asn: Asn }
+    & Partial<Pick<WireLookupResponse, 'is_bot'>> & Required<Pick<WireLookupResponse, HeldFlag>>;
 
 /** An address the domain resolves to, and the network announcing it. */
 export type DomainHost = Omit<WireDomainHost, 'asn'> & { asn: Asn };
@@ -90,6 +111,13 @@ export interface Result {
     isHosting?: boolean;
     isCdn?: boolean;
     isAnycast: boolean;
+    /**
+     * `isCarrier` to `isBittorrent` are the flags of Carrier IP, Satellite IP, SSH IP, SMTP IP, Web IP, DNS
+     * Resolver IP and BitTorrent IP, on a paid plan or the trial. Unlimited's answer does not send them, and
+     * they read `false` there so code written when it did keeps working; they become optional at the next
+     * major. `raw` has a member only when the API sent it, and a `blockCondition` on one an answer lacks is
+     * reported as a plan gap.
+     */
     isCarrier: boolean;
     isSatellite: boolean;
     isSsh: boolean;
@@ -99,8 +127,8 @@ export interface Result {
     isBittorrent: boolean;
     /**
      * In Bot IP: an automated client's address, such as a search engine's or an AI
-     * company's crawler. Every answer carries it, on every plan; `bot` says whose.
-     * Optional in this type only so a `Result` written out by hand still compiles.
+     * company's crawler; `bot` says whose. On a paid plan or the trial, so it is
+     * `undefined` on Unlimited's answer.
      */
     isBot?: boolean;
     /**
@@ -250,7 +278,12 @@ const DOMAIN_RESULT_NAMES: Record<keyof DomainLookupResponse, Exclude<keyof Doma
 };
 
 export function toResult(body: LookupResponse): Result {
-    return renamed(body, RESULT_NAMES);
+    const result = renamed<LookupResponse, Result>(body, RESULT_NAMES);
+    // Held at their public type: an answer without one reads false, as Unlimited's did before.
+    for (const member of Object.keys(HELD_FLAGS)) {
+        (result as unknown as Record<string, unknown>)[member] ??= false;
+    }
+    return result;
 }
 
 export function toAsnResult(body: AsnLookupResponse): AsnResult {

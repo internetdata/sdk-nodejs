@@ -741,6 +741,13 @@ test('a paid domain answer carries its hosting, home page and linking domains; U
     }
 });
 
+// The paid plan's flags a keyless answer lacks since 2026-11-26. Seven are held at a boolean in `Result`;
+// `isBot` was already optional there.
+const HELD = [
+    'is_carrier', 'is_satellite', 'is_ssh', 'is_smtp', 'is_web', 'is_dns_resolver', 'is_bittorrent',
+];
+const PAID_FLAGS = ['is_bot', ...HELD];
+
 // A member of the wrong type, at any depth, a numeric string or a null where the
 // spec allows none included, is unreadable.
 test('a member of the wrong type is a retried server_error carrying its status', async () => {
@@ -752,6 +759,12 @@ test('a member of the wrong type is a retried server_error carrying its status',
     const cases = {
         'is_vpn as "yes"': [look, { ...lookup, is_vpn: 'yes' }],
         'is_bogon as null': [look, { ...lookup, is_bogon: null }],
+        ...Object.fromEntries(HELD.flatMap((flag) => [
+            [`${flag} as "yes"`, [look, { ...lookup, [flag]: 'yes' }]],
+            [`${flag} as null`, [look, { ...lookup, [flag]: null }]],
+        ])),
+        'an asn type of null': [look, { ...lookup, asn: { ...lookup.asn, type: null } }],
+        'an asn type of 1': [look, { ...lookup, asn: { ...lookup.asn, type: 1 } }],
         'a hostname of 1': [look, { ...lookup, hostname: 1 }],
         'a tor detail of "x"': [look, { ...lookup, tor: 'x' }],
         'a cdn provider of 1': [look, { ...lookup, cdn: { ...lookup.cdn, provider: 1 } }],
@@ -859,6 +872,69 @@ test('a member of the wrong type is a retried server_error carrying its status',
     assert.equal(c.calls.length, 1);
 });
 
+// Unlimited's answer lacks the eight flags, and may lack `asn.type`. It reads, a lookup and a batch
+// entry alike: the seven booleans read false, `isBot` is undefined, and `raw` is what the API sent.
+const camelOf = (name) => name.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+
+function leanAnswer(flags, withType) {
+    const answer = { ...served(IP), asn: { ...UNLIMITED.asn } };
+    for (const flag of PAID_FLAGS) {
+        delete answer[flag];
+    }
+    if (!withType) {
+        delete answer.asn.type;
+    }
+    return Object.assign(answer, flags);
+}
+
+async function readTwice(answer) {
+    const one = await rawClient(body(JSON.stringify(answer))).client.lookup(IP);
+    const batch = rawClient(() => Response.json({ results: { [IP]: answer }, errors: {} }));
+    return [one, (await batch.client.lookupBatch([IP])).get(IP)];
+}
+
+test('an answer without the paid plan flags or asn.type is read, as a lookup and a batch entry', async () => {
+    for (const withType of [true, false]) {
+        const answer = leanAnswer({}, withType);
+        for (const result of await readTwice(answer)) {
+            assert.deepEqual(result.raw, answer);
+            for (const flag of HELD) {
+                assert.equal(result[camelOf(flag)], false, flag);
+                assert.equal(flag in result.raw, false, flag);
+            }
+            assert.equal('isBot' in result, false);
+            assert.equal(result.isAnycast, UNLIMITED.is_anycast);
+            assert.equal(result.asn.type, answer.asn.type);
+        }
+    }
+});
+
+test('a flag the answer carries reads as sent, true or false', async () => {
+    for (const value of [true, false]) {
+        const answer = leanAnswer(Object.fromEntries(PAID_FLAGS.map((flag) => [flag, value])), true);
+        for (const result of await readTwice(answer)) {
+            for (const flag of PAID_FLAGS) {
+                assert.equal(result[camelOf(flag)], value, flag);
+                assert.equal(result.raw[flag], value, flag);
+            }
+        }
+    }
+});
+
+// A domain lookup's hosting rows carry the same network, so one without `type` reads too.
+test('a domain host whose network lacks type is read, and one whose type is null is not', async () => {
+    const host = (type) => ({
+        ...DOMAIN_PAID,
+        hosting: [{ ...DOMAIN_PAID.hosting[0], asn: { ...DOMAIN_PAID.hosting[0].asn, type: type } }],
+    });
+    const answer = await rawClient(body(JSON.stringify(host(undefined)))).client.lookupDomain('example.com');
+    assert.equal('type' in answer.hosting[0].asn, false);
+    await withoutBackoff(() => assert.rejects(
+        () => rawClient(body(JSON.stringify(host(null)))).client.lookupDomain('example.com'),
+        (err) => err.kind === 'server_error',
+    ));
+});
+
 // A first or last seen day is the spec's `format: date`, so one that is no
 // RFC 3339 full-date on a real day is unreadable, wherever it sits; it stays a
 // string. DomainWeb's `last_seen`, BitTorrent's `last_reachable` and Public Proxy
@@ -961,6 +1037,12 @@ test('each checked lookup member list is every required member of its generated 
     };
     for (const [name, list] of Object.entries(lists)) {
         assert.deepEqual([...list].sort(), required(name), name);
+    }
+    // A paid plan's member is optional in the generated type, and never null where an answer carries it.
+    for (const [name, list] of [['LookupResponse', shapes.LOOKUP_NOT_NULL], ['Asn', shapes.ASN_NOT_NULL]]) {
+        for (const member of list) {
+            assert.match(block(name), new RegExp(`^ {4}${member}\\?: `, 'm'), `${name}.${member}`);
+        }
     }
     // A detail object requires nothing, which is what lets `{}` stand under a false flag.
     for (const name of ['ClassDetail', 'ProxyDetail', 'PubproxyDetail', 'CarrierDetail', 'SatelliteDetail',
