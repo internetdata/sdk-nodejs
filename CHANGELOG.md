@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.19.0 - 2026-11-26
+
+### Fixes
+
+- Read a keyless answer without the bot, carrier, satellite and service flags ([`34c9b65`](https://github.com/internetdata/sdk-nodejs/commit/34c9b658a8f96ad18ff6d906dd911d9d0ed78608))
+
 ## 2.18.0 - 2026-11-25
 
 ### Features
