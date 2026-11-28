@@ -2,6 +2,18 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 2.2.1 are described by their release commits.
 
+## 2.20.0 - 2026-11-28
+
+### Features
+
+- Middleware: allowBots sends only a crawler's User-Agent, at most four an address ([`e00de05`](https://github.com/internetdata/sdk-nodejs/commit/e00de059758ac662d61226ae75f36b0d7a00640f))
+
+### Fixes
+
+- Middleware: a condition on the verdict is no plan gap for a request that sent no agent ([`77fdc70`](https://github.com/internetdata/sdk-nodejs/commit/77fdc70efd1c05617f72cbe4909ed8e4ff011222))
+- Middleware: a bogon's answer reports no missing member ([`8c30de6`](https://github.com/internetdata/sdk-nodejs/commit/8c30de6f45e7b7d2e6778bdbfce6fd08781a4369))
+- Spec 2026.11.27: the free plan's trial is a window, not the UTC month ([`826531c`](https://github.com/internetdata/sdk-nodejs/commit/826531cb8ebccd5d2002da0aa46b87fbb8a1b7e6))
+
 ## 2.19.0 - 2026-11-26
 
 ### Fixes
