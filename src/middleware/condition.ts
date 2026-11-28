@@ -71,14 +71,18 @@ export function matchesCondition(
  * A populated object carries every member the plan includes, so a member
  * missing there is one.
  *
- * A locally answered bogon needs no special case: it is synthesized in the
- * widest shape, so every member is present and nothing reads as missing. The
- * corpus pins that, because narrowing the synthesized shape would start
- * reporting a plan gap on every private address.
+ * A locally answered bogon reports nothing missing: it is synthesized in the
+ * widest shape, so every member is present but a user agent's verdict, which
+ * the API answers for a bogon and the client does not, and which no plan gap
+ * explains. The corpus pins the rest, because narrowing the synthesized shape
+ * would start reporting a plan gap on every private address.
  */
 export function missingMembers(
     condition: BlockCondition | BlockCondition[], result: Result,
 ): string[] {
+    if (result.isBogon) {
+        return [];
+    }
     const any = Array.isArray(condition) ? condition : [condition];
     const missing = new Set<string>();
     const answer = result as unknown as Record<string, unknown>;

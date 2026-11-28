@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { InternetData } from '../dist/index.js';
-import { bindSelectors, createCore, MAX_AGENTS_PER_ADDRESS, namesCrawler } from '../dist/middleware/index.js';
+import { bindSelectors, createCore, MAX_AGENTS_PER_ADDRESS, missingMembers, namesCrawler } from '../dist/middleware/index.js';
 
 const data = JSON.parse(readFileSync(new URL('../testdata/testdata.json', import.meta.url), 'utf8'));
 const CORPUS = data.crawlerAgents;
@@ -188,6 +188,23 @@ test('a condition on the verdict is no plan gap for a request that sent no agent
     const warned = [];
     await core(origin('spoofed'), { blockCondition: forged, onWarn: (m) => warned.push(m) }).evaluate(request());
     assert.equal(warned.length, 1, 'off, a condition on the verdict can never match, and says so');
+});
+
+test('a bogon peer sending a crawler agent is no plan gap', async () => {
+    const forged = { userAgent: { verdict: 'spoofed' } };
+    for (const peer of ['127.0.0.1', '10.0.0.1', '::1']) {
+        for (const onMissingField of ['throw', 'warn']) {
+            const warnings = [];
+            const o = origin('spoofed');
+            const c = core(o, { allowBots: true, blockCondition: forged, onMissingField: onMissingField, onWarn: (m) => warnings.push(m) });
+            const lookup = await c.evaluate(request({ 'user-agent': GOOGLEBOT }, peer));
+            assert.equal(lookup.blocked, false, `${peer}, ${onMissingField}`);
+            assert.equal(lookup.result.isBogon, true);
+            assert.deepEqual(o.agents, [], 'a bogon never reaches the origin');
+            assert.deepEqual(warnings.filter((m) => m.includes('does not include')), [], `${peer}, ${onMissingField}`);
+            assert.deepEqual(missingMembers(forged, lookup.result), []);
+        }
+    }
 });
 
 test('allowBots is checked when the middleware is built', () => {
